@@ -24,6 +24,7 @@ public class ExecPlan {
     private final DescriptorTable descTbl = new DescriptorTable();
     private final Map<ColumnRefOperator, Expr> colRefToExpr = new HashMap<>();
     private final ArrayList<PlanFragment> fragments = new ArrayList<>();
+    private int planCount = 0;
 
     public ExecPlan(PlannerContext planCtx, ConnectContext connectContext, List<String> colNames) {
         this.planCtx = planCtx;
@@ -61,6 +62,14 @@ public class ExecPlan {
 
     public Map<ColumnRefOperator, Expr> getColRefToExpr() {
         return colRefToExpr;
+    }
+
+    public void setPlanCount(int planCount) {
+        this.planCount = planCount;
+    }
+
+    public int getPlanCount() {
+        return planCount;
     }
 
     public String getExplainString(TExplainLevel level) {

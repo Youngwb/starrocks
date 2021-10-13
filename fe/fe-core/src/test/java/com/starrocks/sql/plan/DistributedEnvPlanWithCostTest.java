@@ -1,10 +1,28 @@
 package com.starrocks.sql.plan;
 
+import com.github.benmanes.caffeine.cache.AsyncCacheLoader;
+import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.starrocks.common.Config;
 import com.starrocks.common.FeConstants;
+import com.starrocks.sql.optimizer.statistics.CachedStatisticStorage;
+import com.starrocks.sql.optimizer.statistics.ColumnStatistic;
+import com.starrocks.thrift.TStatisticData;
 import com.starrocks.utframe.UtFrameUtils;
+import org.checkerframework.checker.nullness.qual.NonNull;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
 
 public class DistributedEnvPlanWithCostTest extends DistributedEnvPlanTestBase {
     @BeforeClass
@@ -559,5 +577,119 @@ public class DistributedEnvPlanWithCostTest extends DistributedEnvPlanTestBase {
                 "  |  equal join conjunct: [1: PS_PARTKEY, INT, true] = [7: P_PARTKEY, INT, true]\n" +
                 "  |  other predicates: 1: PS_PARTKEY IS NULL\n" +
                 "  |  cardinality: 4000000"));
+    }
+
+    @Test
+    public void testThreeTableJoinEnumPlan() {
+        runFileUnitTest("enumerate-plan/three-join");
+    }
+
+    @Test
+    public void testTPCHQ1EnumPlan() {
+        runFileUnitTest("enumerate-plan/tpch-q1");
+    }
+
+    @Test
+    public void testTPCHQ2EnumPlan() throws Exception {
+        String sql = "select\n" +
+                "    s_acctbal,\n" +
+                "    s_name,\n" +
+                "    n_name,\n" +
+                "    p_partkey,\n" +
+                "    p_mfgr,\n" +
+                "    s_address,\n" +
+                "    s_phone,\n" +
+                "    s_comment\n" +
+                "from\n" +
+                "    part,\n" +
+                "    supplier,\n" +
+                "    partsupp,\n" +
+                "    nation,\n" +
+                "    region\n" +
+                "where\n" +
+                "        p_partkey = ps_partkey\n" +
+                "  and s_suppkey = ps_suppkey\n" +
+                "  and p_size = 12\n" +
+                "  and p_type like '%COPPER'\n" +
+                "  and s_nationkey = n_nationkey\n" +
+                "  and n_regionkey = r_regionkey\n" +
+                "  and r_name = 'AMERICA'\n" +
+                "  and ps_supplycost = (\n" +
+                "    select\n" +
+                "        min(ps_supplycost)\n" +
+                "    from\n" +
+                "        partsupp,\n" +
+                "        supplier,\n" +
+                "        nation,\n" +
+                "        region\n" +
+                "    where\n" +
+                "            p_partkey = ps_partkey\n" +
+                "      and s_suppkey = ps_suppkey\n" +
+                "      and s_nationkey = n_nationkey\n" +
+                "      and n_regionkey = r_regionkey\n" +
+                "      and r_name = 'AMERICA'\n" +
+                ")\n" +
+                "order by\n" +
+                "    s_acctbal desc,\n" +
+                "    n_name,\n" +
+                "    s_name,\n" +
+                "    p_partkey limit 100;\n" +
+                "\n";
+        connectContext.getSessionVariable().setMaxTransformReorderJoins(4);
+        int planCount = getPlanCount(sql);
+        Assert.assertEquals(7488, planCount);
+        connectContext.getSessionVariable().setMaxTransformReorderJoins(8);
+    }
+
+    @Test
+    public void testTPCHQ3EnumPlan() throws Exception {
+
+        runFileUnitTest("enumerate-plan/tpch-q3");
+    }
+
+    @Test
+    public void testTPCHQ4EnumPlan() throws Exception {
+
+        runFileUnitTest("enumerate-plan/tpch-q4");
+    }
+
+    @Test
+    public void testTPCHQ5EnumPlan() throws Exception {
+        String sql = "select\n" +
+                "    n_name,\n" +
+                "    sum(l_extendedprice * (1 - l_discount)) as revenue\n" +
+                "from\n" +
+                "    customer,\n" +
+                "    orders,\n" +
+                "    lineitem,\n" +
+                "    supplier,\n" +
+                "    nation,\n" +
+                "    region\n" +
+                "where\n" +
+                "        c_custkey = o_custkey\n" +
+                "  and l_orderkey = o_orderkey\n" +
+                "  and l_suppkey = s_suppkey\n" +
+                "  and c_nationkey = s_nationkey\n" +
+                "  and s_nationkey = n_nationkey\n" +
+                "  and n_regionkey = r_regionkey\n" +
+                "  and r_name = 'AFRICA'\n" +
+                "  and o_orderdate >= date '1995-01-01'\n" +
+                "  and o_orderdate < date '1996-01-01'\n" +
+                "group by\n" +
+                "    n_name\n" +
+                "order by\n" +
+                "    revenue desc ;";
+        connectContext.getSessionVariable().setMaxTransformReorderJoins(4);
+        int planCount = getPlanCount(sql);
+        Assert.assertEquals(192, planCount);
+
+//        for (int i = 1; i <= planCount; ++i) {
+//            connectContext.getSessionVariable().setUseNthExecPlan(i);
+//            System.out.println("[plan-" + i + "]");
+//            System.out.println(UtFrameUtils.getNewPlanAndFragment(connectContext, sql).first);
+//            System.out.println("[end]");
+//        }
+//        connectContext.getSessionVariable().setMaxTransformReorderJoins(8);
+//        runFileUnitTest("enumerate-plan/tpch-q3");
     }
 }
