@@ -593,4 +593,17 @@ public class DistributedEnvPlanWithCostTest extends DistributedEnvPlanTestBase {
         Assert.assertTrue(plan.contains("2:AGGREGATE (update serialize)"));
         Assert.assertTrue(plan.contains("4:AGGREGATE (merge finalize)"));
     }
+
+    @Test
+    public void testColumnStatisticsMaxMin() throws Exception {
+        // check not NAN value in Max/Min column statistics
+        String sql = "select S_SUPPKEY from supplier where S_SUPPKEY = -1";
+        String plan = getCostExplain(sql);
+        Assert.assertTrue(plan.contains("S_SUPPKEY-->[1.0, 1000000.0, 0.0, 4.0, 1000000.0]"));
+
+        sql = "select S_SUPPKEY, PS_SUPPKEY from supplier left join partsupp on S_SUPPKEY = PS_SUPPKEY where PS_SUPPKEY = -1";
+        plan = getCostExplain(sql);
+        Assert.assertTrue(plan.contains("S_SUPPKEY-->[1.0, 1000000.0, 0.0, 4.0, 1000000.0]"));
+        Assert.assertTrue(plan.contains("PS_SUPPKEY-->[1.0, 1000000.0, 0.0, 8.0, 1000000.0]"));
+    }
 }

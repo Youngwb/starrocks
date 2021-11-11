@@ -207,8 +207,8 @@ public class BinaryPredicateStatisticCalculator {
         //  distinct values actually.
         ColumnStatistic newEstimateColumnStatistics = ColumnStatistic.builder().
                 setAverageRowSize(columnStatistic.getAverageRowSize()).
-                setMaxValue(intersectRange.getHigh()).
-                setMinValue(intersectRange.getLow()).
+                setMaxValue(Double.isNaN(intersectRange.getHigh()) ? columnRange.getHigh() : intersectRange.getHigh()).
+                setMinValue(Double.isNaN(intersectRange.getLow()) ? columnRange.getLow() : intersectRange.getLow()).
                 setNullsFraction(0).
                 setDistinctValuesCount(columnStatistic.getDistinctValuesCount()).
                 setType(columnStatistic.getType()).
