@@ -1185,7 +1185,7 @@ create_stmt ::=
     {:
         RESULT = new CreateFileStmt(fileName, db, properties);
     :}
-    | KW_CREATE KW_MATERIALIZED KW_VIEW ident:mvName KW_AS select_stmt:selectStmt opt_properties:properties
+    | KW_CREATE KW_MATERIALIZED KW_VIEW ident:mvName KW_AS select_stmt:selectStmt KW_PROPERTIES LPAREN key_value_map:properties RPAREN
     {:
         RESULT = new CreateMaterializedViewStmt(mvName, selectStmt, properties);
     :}
@@ -2040,13 +2040,12 @@ key_value_map ::=
     ;
 
 opt_properties ::=
-    properties:KW_PROPERTIES LPAREN key_value_map:map RPAREN
-    {:
-    RESULT = map;
-    :}
-    |
     {:
     RESULT = null;
+    :}
+    | properties:KW_PROPERTIES LPAREN key_value_map:map RPAREN
+    {:
+    RESULT = map;
     :}
     ;
 
