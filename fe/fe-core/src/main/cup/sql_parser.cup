@@ -2043,7 +2043,14 @@ opt_properties ::=
     {:
     RESULT = null;
     :}
-    | KW_PROPERTIES LPAREN key_value_map:map RPAREN
+    | properties:properties
+    {:
+    RESULT = properties;
+    :}
+    ;
+
+properties ::=
+    KW_PROPERTIES LPAREN key_value_map:map RPAREN
     {:
     RESULT = map;
     :}
