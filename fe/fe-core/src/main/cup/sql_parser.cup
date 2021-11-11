@@ -401,7 +401,7 @@ nonterminal SetVar option_value, option_value_follow_option_type, option_value_n
 nonterminal List<SetVar> option_value_list, option_value_list_continued, start_option_value_list,
         start_option_value_list_following_option_type, user_property_list;
 
-nonterminal Map<String, String> key_value_map, opt_key_value_map, opt_properties, opt_ext_properties;
+nonterminal Map<String, String> key_value_map, opt_key_value_map, opt_properties, opt_ext_properties, properties;
 nonterminal ColumnDef column_definition;
 nonterminal IndexDef index_definition;
 nonterminal ArrayList<ColumnDef> column_definition_list;
