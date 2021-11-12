@@ -2041,12 +2041,12 @@ key_value_map ::=
     ;
 
 opt_properties ::=
-    {:
-    RESULT = null;
-    :}
-    | properties:KW_PROPERTIES LPAREN key_value_map:map RPAREN
+    properties:KW_PROPERTIES LPAREN key_value_map:map RPAREN
     {:
     RESULT = map;
+    :}
+    | {:
+    RESULT = null;
     :}
     %prec KW_PROPERTIES
     ;
