@@ -60,7 +60,7 @@ public class SqlParserUtils {
 
     // get all parsed statements as a list
     public static List<StatementBase> getMultiStmts(SqlParser parser) throws Exception {
-        List<StatementBase> stmts = (List<StatementBase>) parser.parse().value;
+        List<StatementBase> stmts = (List<StatementBase>) parser.debug_parse().value;
         /*
          * When user execute query by some client library such as python MysqlDb, if user execute like:
          *
