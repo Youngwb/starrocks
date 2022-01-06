@@ -64,4 +64,6 @@ public class FeConstants {
     public static String null_string = "\\N";
 
     public static boolean USE_MOCK_DICT_MANAGER = false;
+
+    public static double default_cte_inline_cost_rate = 1.5;
 }

@@ -741,6 +741,10 @@ public class Catalog {
         this.statisticStorage = statisticStorage;
     }
 
+    public StatisticStorage getStatisticStorage() {
+        return this.statisticStorage;
+    }
+
     public static AuditEventProcessor getCurrentAuditEventProcessor() {
         return getCurrentCatalog().getAuditEventProcessor();
     }
