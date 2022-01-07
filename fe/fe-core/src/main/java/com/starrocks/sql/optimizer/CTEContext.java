@@ -36,7 +36,6 @@ public class CTEContext {
     private boolean enableCTE;
 
     public CTEContext() {
-        reset();
     }
 
     public void reset() {

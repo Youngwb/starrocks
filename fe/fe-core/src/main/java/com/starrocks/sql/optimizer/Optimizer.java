@@ -149,7 +149,6 @@ public class Optimizer {
         CTEUtils.collectCteOperators(memo, cteContext);
         while (cteContext.hasInlineCTE()) {
             ruleRewriteIterative(memo, rootTaskContext, RuleSetType.INLINE_ONE_CTE);
-            cteContext.reset();
             CTEUtils.collectCteOperators(memo, cteContext);
         }
 
@@ -222,6 +221,9 @@ public class Optimizer {
         ruleRewriteOnlyOnce(memo, rootTaskContext, new JoinForceLimitRule());
 
         cleanUpMemoGroup(memo);
+        if (cteContext.needOptimizeCTE()) {
+            CTEUtils.collectCteOperators(memo, cteContext);
+        }
 
         // Derive statistics, cte/intersect reorder depend on statistics
         // Important! Derive statistics can't replay, if produce new operator after
@@ -233,15 +235,10 @@ public class Optimizer {
         ruleRewriteOnlyOnce(memo, rootTaskContext, new ReorderIntersectRule());
 
         // compute CTE inline
-        if (cteContext.needOptimizeCTE()) {
+        while (cteContext.needOptimizeCTE() && cteContext.hasInlineCTE()) {
+            ruleRewriteIterative(memo, rootTaskContext, RuleSetType.INLINE_CTE);
             cteContext.reset();
             CTEUtils.collectCteOperators(memo, cteContext);
-
-            while (cteContext.hasInlineCTE()) {
-                ruleRewriteIterative(memo, rootTaskContext, RuleSetType.INLINE_CTE);
-                cteContext.reset();
-                CTEUtils.collectCteOperators(memo, cteContext);
-            }
         }
 
         ruleRewriteIterative(memo, rootTaskContext, new MergeTwoProjectRule());

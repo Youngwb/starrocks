@@ -70,6 +70,12 @@ public class TPCHPlanTest extends PlanTestBase {
     }
 
     @Test
+    public void test() throws Exception {
+        String sql = "with testC (v) as (select v1 from t0 union all select v4 from t1 union all select v7 from t2) select * from testC;\n";
+        System.out.println(getFragmentPlan(sql));
+    }
+
+    @Test
     public void testGroupingSets() {
         runFileUnitTest("optimized-plan/grouping-sets");
     }

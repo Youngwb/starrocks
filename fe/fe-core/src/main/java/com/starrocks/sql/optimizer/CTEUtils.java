@@ -42,6 +42,7 @@ public class CTEUtils {
      * @Todo: move CTE inline into memo optimize phase
      * */
     public static void collectCteOperators(Memo memo, CTEContext context) {
+        context.reset();
         collectCteProduce(memo.getRootGroup(), context);
         collectCteConsume(memo.getRootGroup(), context);
     }
