@@ -146,10 +146,10 @@ public class Optimizer {
     void logicalRuleRewrite(Memo memo, TaskContext rootTaskContext) {
         CTEContext cteContext = context.getCteContext();
 
-        CTEUtils.collectCteOperators(memo, cteContext);
+        CTEUtils.collectCteOperatorsWithoutCosts(memo, context);
         while (cteContext.hasInlineCTE()) {
             ruleRewriteIterative(memo, rootTaskContext, RuleSetType.INLINE_ONE_CTE);
-            CTEUtils.collectCteOperators(memo, cteContext);
+            CTEUtils.collectCteOperatorsWithoutCosts(memo, context);
         }
 
         cleanUpMemoGroup(memo);
@@ -218,19 +218,11 @@ public class Optimizer {
         ruleRewriteOnlyOnce(memo, rootTaskContext, RuleSetType.PARTITION_PRUNE);
         ruleRewriteOnlyOnce(memo, rootTaskContext, LimitPruneTabletsRule.getInstance());
         ruleRewriteIterative(memo, rootTaskContext, RuleSetType.PRUNE_PROJECT);
-        ruleRewriteOnlyOnce(memo, rootTaskContext, new JoinForceLimitRule());
 
         cleanUpMemoGroup(memo);
         if (cteContext.needOptimizeCTE()) {
-            CTEUtils.collectCteOperators(memo, cteContext);
+            CTEUtils.collectCteOperators(memo, context);
         }
-
-        // Derive statistics, cte/intersect reorder depend on statistics
-        // Important! Derive statistics can't replay, if produce new operator after
-        // there, the group will lose statistics
-        context.getTaskScheduler().pushTask(new DeriveStatsTask(
-                rootTaskContext, memo.getRootGroup().getFirstLogicalExpression()));
-        context.getTaskScheduler().executeTasks(rootTaskContext, memo.getRootGroup());
 
         ruleRewriteOnlyOnce(memo, rootTaskContext, new ReorderIntersectRule());
 
@@ -238,11 +230,12 @@ public class Optimizer {
         while (cteContext.needOptimizeCTE() && cteContext.hasInlineCTE()) {
             ruleRewriteIterative(memo, rootTaskContext, RuleSetType.INLINE_CTE);
             cteContext.reset();
-            CTEUtils.collectCteOperators(memo, cteContext);
+            CTEUtils.collectCteOperators(memo, context);
         }
 
         ruleRewriteIterative(memo, rootTaskContext, new MergeTwoProjectRule());
         ruleRewriteIterative(memo, rootTaskContext, new MergeProjectWithChildRule());
+        ruleRewriteOnlyOnce(memo, rootTaskContext, new JoinForceLimitRule());
 
         cleanUpMemoGroup(memo);
     }

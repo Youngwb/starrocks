@@ -2,6 +2,7 @@
 package com.starrocks.sql.optimizer.rule.transformation;
 
 import com.google.common.collect.Lists;
+import com.starrocks.sql.optimizer.ExpressionContext;
 import com.starrocks.sql.optimizer.OptExpression;
 import com.starrocks.sql.optimizer.OptimizerContext;
 import com.starrocks.sql.optimizer.operator.OperatorType;
@@ -9,6 +10,7 @@ import com.starrocks.sql.optimizer.operator.logical.LogicalIntersectOperator;
 import com.starrocks.sql.optimizer.operator.pattern.Pattern;
 import com.starrocks.sql.optimizer.operator.scalar.ColumnRefOperator;
 import com.starrocks.sql.optimizer.rule.RuleType;
+import com.starrocks.sql.optimizer.statistics.StatisticsCalculator;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -24,9 +26,9 @@ public class ReorderIntersectRule extends TransformationRule {
     public List<OptExpression> transform(OptExpression input, OptimizerContext context) {
         LogicalIntersectOperator intersectOperator = (LogicalIntersectOperator) input.getOp();
         OptExpression intersectOpt = input.getGroupExpression().getGroup().extractLogicalTree();
+        calculateStatistics(intersectOpt, context);
         OptExpression o = intersectOpt.getInputs().stream().min(
-                Comparator.comparingDouble(c -> c.getGroupExpression().getGroup().getStatistics().getOutputRowCount()))
-                .get();
+                Comparator.comparingDouble(c -> c.getStatistics().getOutputRowCount())).get();
 
         int index = intersectOpt.getInputs().indexOf(o);
 
@@ -47,4 +49,20 @@ public class ReorderIntersectRule extends TransformationRule {
                         .setChildOutputColumns(childOutputColumns).build(), newChildList));
     }
 
+    private void calculateStatistics(OptExpression expr, OptimizerContext context) {
+        // Avoid repeated calculate
+        if (expr.getStatistics() != null) {
+            return;
+        }
+
+        for (OptExpression child : expr.getInputs()) {
+            calculateStatistics(child, context);
+        }
+
+        ExpressionContext expressionContext = new ExpressionContext(expr);
+        StatisticsCalculator statisticsCalculator = new StatisticsCalculator(
+                expressionContext, context.getColumnRefFactory(), context);
+        statisticsCalculator.estimatorStats();
+        expr.setStatistics(expressionContext.getStatistics());
+    }
 }

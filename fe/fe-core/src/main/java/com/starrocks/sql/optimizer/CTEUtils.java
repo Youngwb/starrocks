@@ -6,6 +6,7 @@ import com.starrocks.sql.optimizer.base.ColumnRefSet;
 import com.starrocks.sql.optimizer.operator.OperatorType;
 import com.starrocks.sql.optimizer.operator.logical.LogicalCTEConsumeOperator;
 import com.starrocks.sql.optimizer.operator.logical.LogicalCTEProduceOperator;
+import com.starrocks.sql.optimizer.statistics.StatisticsCalculator;
 
 public class CTEUtils {
 
@@ -41,13 +42,19 @@ public class CTEUtils {
      *
      * @Todo: move CTE inline into memo optimize phase
      * */
-    public static void collectCteOperators(Memo memo, CTEContext context) {
-        context.reset();
-        collectCteProduce(memo.getRootGroup(), context);
-        collectCteConsume(memo.getRootGroup(), context);
+    public static void collectCteOperators(Memo memo, OptimizerContext context) {
+        context.getCteContext().reset();
+        collectCteProduce(memo.getRootGroup(), context, true);
+        collectCteConsume(memo.getRootGroup(), context, true);
     }
 
-    private static void collectCteProduce(Group root, CTEContext context) {
+    public static void collectCteOperatorsWithoutCosts(Memo memo, OptimizerContext context) {
+        context.getCteContext().reset();
+        collectCteProduce(memo.getRootGroup(), context, false);
+        collectCteConsume(memo.getRootGroup(), context, false);
+    }
+
+    private static void collectCteProduce(Group root, OptimizerContext context, boolean collectCosts) {
         GroupExpression expression = root.getFirstLogicalExpression();
 
         if (OperatorType.LOGICAL_CTE_PRODUCE.equals(expression.getOp().getOpType())) {
@@ -55,10 +62,12 @@ public class CTEUtils {
             LogicalCTEProduceOperator produce = (LogicalCTEProduceOperator) expression.getOp();
             OptExpression opt = OptExpression.create(produce);
             opt.attachGroupExpression(expression);
-            context.addCTEProduce(produce.getCteId(), opt);
+            context.getCteContext().addCTEProduce(produce.getCteId(), opt);
 
             // costs
-            context.addCTEProduceCost(produce.getCteId(), calculateOutputSize(root));
+            if (collectCosts) {
+                context.getCteContext().addCTEProduceCost(produce.getCteId(), calculateOutputSize(root, context));
+            }
         }
 
         for (Group group : expression.getInputs()) {
@@ -66,47 +75,64 @@ public class CTEUtils {
             OperatorType childType = group.getFirstLogicalExpression().getOp().getOpType();
             if (OperatorType.LOGICAL_CTE_PRODUCE.equals(childType) ||
                     OperatorType.LOGICAL_CTE_ANCHOR.equals(childType)) {
-                collectCteProduce(group, context);
+                collectCteProduce(group, context, collectCosts);
             }
         }
     }
 
-    private static void collectCteConsume(Group root, CTEContext context) {
+    private static void collectCteConsume(Group root, OptimizerContext context, boolean collectCosts) {
         GroupExpression expression = root.getFirstLogicalExpression();
 
         if (OperatorType.LOGICAL_CTE_CONSUME.equals(expression.getOp().getOpType())) {
             // consumer
             LogicalCTEConsumeOperator consume = (LogicalCTEConsumeOperator) expression.getOp();
-            context.addCTEConsume(consume.getCteId());
+            context.getCteContext().addCTEConsume(consume.getCteId());
 
             // required columns
             ColumnRefSet requiredColumnRef =
-                    context.getRequiredColumns().getOrDefault(consume.getCteId(), new ColumnRefSet());
+                    context.getCteContext().getRequiredColumns().getOrDefault(consume.getCteId(), new ColumnRefSet());
             consume.getCteOutputColumnRefMap().values().forEach(requiredColumnRef::union);
-            context.getRequiredColumns().put(consume.getCteId(), requiredColumnRef);
+            context.getCteContext().getRequiredColumns().put(consume.getCteId(), requiredColumnRef);
 
             // inline costs
-            context.addCTEConsumeInlineCost(consume.getCteId(), calculateOutputSize(expression.getInputs().get(0)));
+            if (collectCosts) {
+                context.getCteContext().addCTEConsumeInlineCost(consume.getCteId(),
+                        calculateOutputSize(expression.getInputs().get(0), context));
+            }
 
             // not ask children
             return;
         }
 
         for (Group group : expression.getInputs()) {
-            collectCteConsume(group, context);
+            collectCteConsume(group, context, collectCosts);
         }
     }
 
-    private static double calculateOutputSize(Group root) {
-        if (root.getStatistics() == null) {
-            return -1;
-        }
+    private static double calculateOutputSize(Group root, OptimizerContext context) {
+        OptExpression opt = root.extractLogicalTree();
 
         /*
          * Because logical operator can't compute costs in rewrite phase now, so
          * there temporary use rows size
          *
          * */
-        return root.getStatistics().getComputeSize();
+        calculateStatistics(opt, context);
+        return opt.getStatistics().getComputeSize();
+    }
+
+    private static void calculateStatistics(OptExpression expr, OptimizerContext context) {
+        // don't ask cte consume children
+        if (expr.getOp().getOpType() != OperatorType.LOGICAL_CTE_CONSUME) {
+            for (OptExpression child : expr.getInputs()) {
+                calculateStatistics(child, context);
+            }
+        }
+
+        ExpressionContext expressionContext = new ExpressionContext(expr);
+        StatisticsCalculator statisticsCalculator = new StatisticsCalculator(
+                expressionContext, context.getColumnRefFactory(), context);
+        statisticsCalculator.estimatorStats();
+        expr.setStatistics(expressionContext.getStatistics());
     }
 }

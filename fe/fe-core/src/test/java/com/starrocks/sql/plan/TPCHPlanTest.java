@@ -71,7 +71,7 @@ public class TPCHPlanTest extends PlanTestBase {
 
     @Test
     public void test() throws Exception {
-        String sql = "with testC (v) as (select v1 from t0 union all select v4 from t1 union all select v7 from t2) select * from testC;\n";
+        String sql = "select * from t0 where exists (select * from (values(1,2),(3,4)) t)\n";
         System.out.println(getFragmentPlan(sql));
     }
 
