@@ -71,7 +71,7 @@ public class TPCHPlanTest extends PlanTestBase {
 
     @Test
     public void test() throws Exception {
-        String sql = "select * from t0 where exists (select * from (values(1,2),(3,4)) t)\n";
+        String sql = "select v1 from t0 where v2 = (with cte as (select v4,v5 from t1 order by 2 limit 10) select v4 from cte order by 1 limit 1)";
         System.out.println(getFragmentPlan(sql));
     }
 

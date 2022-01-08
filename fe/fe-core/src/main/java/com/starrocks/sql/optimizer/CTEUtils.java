@@ -6,6 +6,7 @@ import com.starrocks.sql.optimizer.base.ColumnRefSet;
 import com.starrocks.sql.optimizer.operator.OperatorType;
 import com.starrocks.sql.optimizer.operator.logical.LogicalCTEConsumeOperator;
 import com.starrocks.sql.optimizer.operator.logical.LogicalCTEProduceOperator;
+import com.starrocks.sql.optimizer.statistics.Statistics;
 import com.starrocks.sql.optimizer.statistics.StatisticsCalculator;
 
 public class CTEUtils {
@@ -66,17 +67,14 @@ public class CTEUtils {
 
             // costs
             if (collectCosts) {
-                context.getCteContext().addCTEProduceCost(produce.getCteId(), calculateOutputSize(root, context));
+                Statistics statistics = calculateStatistics(root, context);
+                opt.setStatistics(statistics);
+                context.getCteContext().addCTEProduceCost(produce.getCteId(), statistics.getComputeSize());
             }
         }
 
         for (Group group : expression.getInputs()) {
-            // reduce tree search
-            OperatorType childType = group.getFirstLogicalExpression().getOp().getOpType();
-            if (OperatorType.LOGICAL_CTE_PRODUCE.equals(childType) ||
-                    OperatorType.LOGICAL_CTE_ANCHOR.equals(childType)) {
-                collectCteProduce(group, context, collectCosts);
-            }
+            collectCteProduce(group, context, collectCosts);
         }
     }
 
@@ -97,7 +95,7 @@ public class CTEUtils {
             // inline costs
             if (collectCosts) {
                 context.getCteContext().addCTEConsumeInlineCost(consume.getCteId(),
-                        calculateOutputSize(expression.getInputs().get(0), context));
+                        calculateStatistics(expression.getInputs().get(0), context).getComputeSize());
             }
 
             // not ask children
@@ -109,7 +107,7 @@ public class CTEUtils {
         }
     }
 
-    private static double calculateOutputSize(Group root, OptimizerContext context) {
+    private static Statistics calculateStatistics(Group root, OptimizerContext context) {
         OptExpression opt = root.extractLogicalTree();
 
         /*
@@ -118,7 +116,7 @@ public class CTEUtils {
          *
          * */
         calculateStatistics(opt, context);
-        return opt.getStatistics().getComputeSize();
+        return opt.getStatistics();
     }
 
     private static void calculateStatistics(OptExpression expr, OptimizerContext context) {

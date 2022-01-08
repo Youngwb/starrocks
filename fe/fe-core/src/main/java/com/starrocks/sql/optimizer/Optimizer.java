@@ -24,7 +24,7 @@ import com.starrocks.sql.optimizer.rule.transformation.MergeProjectWithChildRule
 import com.starrocks.sql.optimizer.rule.transformation.MergeTwoAggRule;
 import com.starrocks.sql.optimizer.rule.transformation.MergeTwoProjectRule;
 import com.starrocks.sql.optimizer.rule.transformation.PruneEmptyWindowRule;
-import com.starrocks.sql.optimizer.rule.transformation.PushCTEProduceRule;
+import com.starrocks.sql.optimizer.rule.transformation.PushLimitAndFilterToCTEProduceRule;
 import com.starrocks.sql.optimizer.rule.transformation.PushDownAggToMetaScanRule;
 import com.starrocks.sql.optimizer.rule.transformation.PushDownJoinOnExpressionToChildProject;
 import com.starrocks.sql.optimizer.rule.transformation.ReorderIntersectRule;
@@ -199,7 +199,7 @@ public class Optimizer {
             ruleRewriteOnlyOnce(memo, rootTaskContext, RuleSetType.PRUNE_COLUMNS);
 
             if (cteContext.needPushLimit() || cteContext.needPushPredicate()) {
-                ruleRewriteOnlyOnce(memo, rootTaskContext, new PushCTEProduceRule());
+                ruleRewriteOnlyOnce(memo, rootTaskContext, new PushLimitAndFilterToCTEProduceRule());
             }
 
             if (cteContext.needPushPredicate()) {
@@ -224,18 +224,16 @@ public class Optimizer {
             CTEUtils.collectCteOperators(memo, context);
         }
 
-        ruleRewriteOnlyOnce(memo, rootTaskContext, new ReorderIntersectRule());
-
         // compute CTE inline
         while (cteContext.needOptimizeCTE() && cteContext.hasInlineCTE()) {
             ruleRewriteIterative(memo, rootTaskContext, RuleSetType.INLINE_CTE);
-            cteContext.reset();
             CTEUtils.collectCteOperators(memo, context);
         }
 
         ruleRewriteIterative(memo, rootTaskContext, new MergeTwoProjectRule());
         ruleRewriteIterative(memo, rootTaskContext, new MergeProjectWithChildRule());
         ruleRewriteOnlyOnce(memo, rootTaskContext, new JoinForceLimitRule());
+        ruleRewriteOnlyOnce(memo, rootTaskContext, new ReorderIntersectRule());
 
         cleanUpMemoGroup(memo);
     }

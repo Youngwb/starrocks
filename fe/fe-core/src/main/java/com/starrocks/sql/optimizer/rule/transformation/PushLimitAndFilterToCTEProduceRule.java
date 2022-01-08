@@ -30,8 +30,8 @@ import java.util.List;
  *                        Node
  *
  * */
-public class PushCTEProduceRule extends TransformationRule {
-    public PushCTEProduceRule() {
+public class PushLimitAndFilterToCTEProduceRule extends TransformationRule {
+    public PushLimitAndFilterToCTEProduceRule() {
         super(RuleType.TF_PUSH_CTE_PRODUCE,
                 Pattern.create(OperatorType.LOGICAL_CTE_PRODUCE, OperatorType.PATTERN_LEAF));
     }
