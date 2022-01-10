@@ -11,7 +11,6 @@ import com.starrocks.catalog.MaterializedIndex;
 import com.starrocks.catalog.OlapTable;
 import com.starrocks.catalog.Partition;
 import com.starrocks.catalog.Replica;
-import com.starrocks.catalog.ScalarType;
 import com.starrocks.catalog.Table;
 import com.starrocks.catalog.Tablet;
 import com.starrocks.catalog.Type;
@@ -1261,8 +1260,7 @@ public class PlanFragmentTest extends PlanTestBase {
         Assert.assertTrue(plan.contains("|  equal join conjunct: 1: v1 = 4: v4"));
         Assert.assertTrue(plan.contains("     TABLE: t0\n"
                 + "     PREAGGREGATION: ON\n"
-                + "     PREDICATES: CAST(CAST(1: v1 AS VARCHAR(" + ScalarType.DEFAULT_STRING_LENGTH
-                + ")) AS DOUBLE) = CAST(1: v1 AS DOUBLE)\n"
+                + "     PREDICATES: CAST(CAST(1: v1 AS VARCHAR(1048576)) AS DOUBLE) = CAST(1: v1 AS DOUBLE)\n"
                 + "     partitions=0/1"));
     }
 
@@ -2686,7 +2684,7 @@ public class PlanFragmentTest extends PlanTestBase {
                 "  |  join op: RIGHT OUTER JOIN (PARTITIONED)\n" +
                 "  |  hash predicates:\n" +
                 "  |  colocate: false, reason: \n" +
-                "  |  equal join conjunct: 1: expr = 3: expr"));
+                "  |  equal join conjunct: 5: expr = 7: expr"));
         Assert.assertTrue(plan.contains("2:UNION\n" +
                 "     constant exprs: \n" +
                 "         2 | 'mike'"));
@@ -3680,7 +3678,7 @@ public class PlanFragmentTest extends PlanTestBase {
         String sql =
                 "WITH t_temp AS (select join1.id as id1,  join2.id as id2 from join1 join join2 on join1.id = join2.id) select * from t_temp";
         String explainString = getFragmentPlan(sql);
-        Assert.assertTrue(explainString.contains("equal join conjunct: 2: id = 5: id"));
+        Assert.assertTrue(explainString.contains("equal join conjunct: 8: id = 11: id"));
         Assert.assertTrue(explainString.contains("  |----2:EXCHANGE\n" +
                 "  |    \n" +
                 "  0:OlapScanNode\n" +

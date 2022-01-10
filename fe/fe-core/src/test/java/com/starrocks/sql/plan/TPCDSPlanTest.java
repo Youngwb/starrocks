@@ -25,9 +25,8 @@ public class TPCDSPlanTest extends TPCDSPlanTestBase {
 
     @Test
     public void testQ3() throws Exception {
-        String planFragment = getFragmentPlan(Q3);
-        Assert.assertTrue(planFragment.contains("hasNullableGenerateChild: true"));
         String costPlanFragment = getCostExplain(Q3);
+        Assert.assertTrue(costPlanFragment.contains("hasNullableGenerateChild: true"));
         Assert.assertTrue(costPlanFragment.contains(" column statistics: \n" +
                 "     * i_item_sk-->[-Infinity, Infinity, 0.0, 1.0, 1.0] UNKNOWN\n" +
                 "     * i_brand_id-->[-Infinity, Infinity, 0.0, 1.0, 1.0] UNKNOWN"));
