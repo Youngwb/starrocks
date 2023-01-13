@@ -110,6 +110,7 @@ public class IcebergGlueCatalog extends BaseMetastoreCatalog implements IcebergC
             this.conf = new Configuration();
         }
 
+        properties.forEach(conf::set);
         String fileIOImpl = properties.get(CatalogProperties.FILE_IO_IMPL);
         this.fileIO =
                 fileIOImpl == null ? new HadoopFileIO(conf) : CatalogUtil.loadFileIO(fileIOImpl, properties, conf);
@@ -119,7 +120,6 @@ public class IcebergGlueCatalog extends BaseMetastoreCatalog implements IcebergC
         cachingFileIO.initialize(properties);
         this.fileIO = cachingFileIO;
 
-        properties.forEach(conf::set);
         this.clients = new CachedGlueClientPool(this.name, conf, properties);
     }
 
