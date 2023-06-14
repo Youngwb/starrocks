@@ -965,6 +965,9 @@ under the License.
                                     <arg value="--java"/>
                                     <arg value="${starrocks.home}/fe/fe-core/target/generated-sources/build"/>
                                 </exec>
+                                <exec executable="mvn -f ../shade-trino-parser">
+                                    <arg value="package -DskipTests"/>
+                                </exec>
                             </tasks>
                         </configuration>
                         <goals>
