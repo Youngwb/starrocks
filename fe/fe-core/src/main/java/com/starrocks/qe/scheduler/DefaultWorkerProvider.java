@@ -14,9 +14,9 @@
 
 package com.starrocks.qe.scheduler;
 
+import com.google.api.client.util.Lists;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.starrocks.common.FeConstants;
@@ -176,7 +176,15 @@ public class DefaultWorkerProvider implements WorkerProvider {
         if (hasComputeNode) {
             return availableID2ComputeNode.values();
         } else {
-            return ImmutableList.copyOf(availableID2Backend.values());
+            List<ComputeNode> computeNodes = Lists.newArrayList();
+            for (ComputeNode backend : availableID2Backend.values()) {
+                for (int i = 0; i < 20; i++) {
+                    computeNodes.add(new ComputeNode(backend.getId() + i, backend.getHost(),
+                            backend.getBePort() + i));
+                }
+            }
+
+            return computeNodes;
         }
     }
 

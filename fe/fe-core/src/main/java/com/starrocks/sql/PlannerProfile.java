@@ -181,6 +181,19 @@ public class PlannerProfile {
         return t;
     }
 
+    public static ScopedTimer getScopedTimerWithoutStart(String name) {
+        ConnectContext ctx = ConnectContext.get();
+        if (ctx == null || ctx.getPlannerProfile() == null ||
+                (ctx.getExplainLevel() != StatementBase.ExplainLevel.OPTIMIZER &&
+                        !ctx.getSessionVariable().isEnableProfile())) {
+            return null;
+        }
+
+        PlannerProfile p = ctx.getPlannerProfile();
+        ScopedTimer t = p.getOrCreateScopedTimer(name);
+        return t;
+    }
+
     public static void addCustomProperties(String name, String value) {
         PlannerProfile p = new PlannerProfile();
         ConnectContext ctx = ConnectContext.get();

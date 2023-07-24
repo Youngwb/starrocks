@@ -513,11 +513,18 @@ public class Coordinator {
             LOG.debug("debug: in Coordinator::exec. query id: {}, desc table: {}",
                     DebugUtil.printId(queryId), descTable);
         }
-
-        coordinatorPreprocessor.prepareExec();
+        try (PlannerProfile.ScopedTimer timer = PlannerProfile.getScopedTimer("Internal-CoordPrepareExec")) {
+            coordinatorPreprocessor.prepareExec();
+        }
+        LOG.info("Internal-CoordPrepareExec time cost {} ms",
+                PlannerProfile.getScopedTimerWithoutStart("Internal-CoordPrepareExec").getTotalTime());
 
         // create result receiver
-        prepareResultSink();
+        try (PlannerProfile.ScopedTimer timer = PlannerProfile.getScopedTimer("Internal-PrepareResultSink")) {
+            prepareResultSink();
+        }
+        LOG.info("Internal-PrepareResultSink time cost {} ms",
+                PlannerProfile.getScopedTimerWithoutStart("Internal-PrepareResultSink").getTotalTime());
 
         prepareProfile();
     }
