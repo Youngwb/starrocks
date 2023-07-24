@@ -14,15 +14,16 @@
 
 package com.starrocks.qe.scheduler;
 
-import com.google.api.client.util.Lists;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.starrocks.common.FeConstants;
 import com.starrocks.qe.SimpleScheduler;
 import com.starrocks.server.GlobalStateMgr;
 import com.starrocks.server.RunMode;
+import com.starrocks.system.Backend;
 import com.starrocks.system.ComputeNode;
 import com.starrocks.system.SystemInfoService;
 import org.apache.commons.collections4.MapUtils;
@@ -90,7 +91,18 @@ public class DefaultWorkerProvider implements WorkerProvider {
             if (RunMode.getCurrentRunMode() == RunMode.SHARED_DATA) {
                 idToBackend = idToComputeNode;
             } else {
-                idToBackend = ImmutableMap.copyOf(systemInfoService.getIdToBackend());
+                Map<Long, ComputeNode> backendMap = ImmutableMap.copyOf(systemInfoService.getIdToBackend());
+                ImmutableMap.Builder<Long, ComputeNode> builder = ImmutableMap.builder();
+                for (Map.Entry<Long, ComputeNode> entry : backendMap.entrySet()) {
+                    for (int i = 0; i < 20; ++i) {
+                        Backend backend = new Backend(entry.getKey() + i, entry.getValue().getHost(),
+                                entry.getValue().getHeartbeatPort() + i);
+                        backend.setAlive(true);
+                        builder.put(entry.getKey() + i, backend);
+                    }
+                }
+
+                idToBackend = builder.build();
             }
 
             if (LOG.isDebugEnabled()) {
@@ -176,15 +188,7 @@ public class DefaultWorkerProvider implements WorkerProvider {
         if (hasComputeNode) {
             return availableID2ComputeNode.values();
         } else {
-            List<ComputeNode> computeNodes = Lists.newArrayList();
-            for (ComputeNode backend : availableID2Backend.values()) {
-                for (int i = 0; i < 20; i++) {
-                    computeNodes.add(new ComputeNode(backend.getId() + i, backend.getHost(),
-                            backend.getBePort() + i));
-                }
-            }
-
-            return computeNodes;
+            return ImmutableList.copyOf(availableID2Backend.values());
         }
     }
 
