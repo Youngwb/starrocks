@@ -558,7 +558,7 @@ public class StmtExecutor {
                                     execPlan.getExplainString(TExplainLevel.COSTS),
                                     e);
                         }
-                        if (i == retryTime - 1) {
+                        if (i == retryTime - 2) {
                             throw e;
                         }
                         if (!context.getMysqlChannel().isSend()) {
