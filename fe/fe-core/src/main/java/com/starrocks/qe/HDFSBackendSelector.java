@@ -79,7 +79,7 @@ public class HDFSBackendSelector implements BackendSelector {
     private final boolean shuffleScanRange;
     private final int kCandidateNumber = 3;
     private final int kMaxImbalanceRatio = 3;
-    private final int kMaxNodeSizeUseRendezvousHashRing = 64;
+    private final int kMaxNodeSizeUseRendezvousHashRing = 10;
     private final int kConsistenHashRingVirtualNumber = 32;
 
     class HdfsScanRangeHasher {
