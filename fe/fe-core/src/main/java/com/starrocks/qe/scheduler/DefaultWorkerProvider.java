@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.starrocks.common.FeConstants;
+import com.starrocks.qe.ConnectContext;
 import com.starrocks.qe.SimpleScheduler;
 import com.starrocks.server.GlobalStateMgr;
 import com.starrocks.server.RunMode;
@@ -94,7 +95,7 @@ public class DefaultWorkerProvider implements WorkerProvider {
                 Map<Long, ComputeNode> backendMap = ImmutableMap.copyOf(systemInfoService.getIdToBackend());
                 ImmutableMap.Builder<Long, ComputeNode> builder = ImmutableMap.builder();
                 for (Map.Entry<Long, ComputeNode> entry : backendMap.entrySet()) {
-                    for (int i = 0; i < 5; ++i) {
+                    for (int i = 0; i < ConnectContext.get().getSessionVariable().getMockBeNum(); ++i) {
                         Backend backend = new Backend(entry.getKey() + i, entry.getValue().getHost(),
                                 entry.getValue().getHeartbeatPort() + i);
                         backend.setAlive(true);

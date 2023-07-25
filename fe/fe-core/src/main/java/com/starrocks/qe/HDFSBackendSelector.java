@@ -196,7 +196,7 @@ public class HDFSBackendSelector implements BackendSelector {
     private HashRing makeHashRing(List<TScanRangeLocations> remoteScanRangeLocations) {
         Set<ComputeNode> nodes = assignedScansPerComputeNode.keySet();
         HashRing hashRing = null;
-        if (nodes.size() > kMaxNodeSizeUseRendezvousHashRing) {
+        if (nodes.size() > ConnectContext.get().getSessionVariable().getMaxNodeSizeUseRendezvousHashRing()) {
             hashRing = new ConsistentHashRing(Hashing.murmur3_128(), new TScanRangeLocationsFunnel(),
                     new ComputeNodeFunnel(), nodes, kConsistenHashRingVirtualNumber);
         } else {
@@ -251,7 +251,7 @@ public class HDFSBackendSelector implements BackendSelector {
                 }
             }
         } else {
-            remoteScanRangeLocations = locations.subList(0, 1 * 1000);
+            remoteScanRangeLocations = locations.subList(0, ConnectContext.get().getSessionVariable().getScanRangeSize());
         }
         if (remoteScanRangeLocations.isEmpty()) {
             return;

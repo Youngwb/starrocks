@@ -469,6 +469,21 @@ public class SessionVariable implements Serializable, Writable, Cloneable {
     // query timeout cannot greater than one month
     public static final int MAX_QUERY_TIMEOUT = 259200;
 
+    public static final String MAX_NODE_SIZE_USE_RENDEZ = "max_node_size_use_rendez";
+
+    public static final String MOCK_BE_NUM = "mock_be_num";
+
+    public static final String SCAN_RANGE_SIZE = "scan_range_size";
+
+    @VarAttr(name = MAX_NODE_SIZE_USE_RENDEZ)
+    private long maxNodeSizeUseRendezvousHashRing = 64;
+
+    @VarAttr(name = MOCK_BE_NUM)
+    private long mockBeNum = 1;
+
+    @VarAttr(name = SCAN_RANGE_SIZE)
+    private int scanRangeSize = 1;
+
     @VariableMgr.VarAttr(name = ENABLE_PIPELINE, alias = ENABLE_PIPELINE_ENGINE, show = ENABLE_PIPELINE_ENGINE)
     private boolean enablePipelineEngine = true;
 
@@ -982,6 +997,18 @@ public class SessionVariable implements Serializable, Writable, Cloneable {
     // support auto|row|column
     @VariableMgr.VarAttr(name = PARTIAL_UPDATE_MODE)
     private String partialUpdateMode = "auto";
+
+    public long getMaxNodeSizeUseRendezvousHashRing() {
+        return maxNodeSizeUseRendezvousHashRing;
+    }
+
+    public long getMockBeNum() {
+        return mockBeNum;
+    }
+
+    public int getScanRangeSize() {
+        return scanRangeSize;
+    }
 
     public void setPartialUpdateMode(String mode) {
         this.partialUpdateMode = mode;
