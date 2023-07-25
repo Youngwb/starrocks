@@ -94,7 +94,7 @@ public class DefaultWorkerProvider implements WorkerProvider {
                 Map<Long, ComputeNode> backendMap = ImmutableMap.copyOf(systemInfoService.getIdToBackend());
                 ImmutableMap.Builder<Long, ComputeNode> builder = ImmutableMap.builder();
                 for (Map.Entry<Long, ComputeNode> entry : backendMap.entrySet()) {
-                    for (int i = 0; i < 1; ++i) {
+                    for (int i = 0; i < 20; ++i) {
                         Backend backend = new Backend(entry.getKey() + i, entry.getValue().getHost(),
                                 entry.getValue().getHeartbeatPort() + i);
                         backend.setAlive(true);
