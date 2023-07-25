@@ -79,7 +79,7 @@ public class HDFSBackendSelector implements BackendSelector {
     private final boolean shuffleScanRange;
     private final int kCandidateNumber = 3;
     private final int kMaxImbalanceRatio = 3;
-    private final int kMaxNodeSizeUseRendezvousHashRing = 10;
+    private final int kMaxNodeSizeUseRendezvousHashRing = 64;
     private final int kConsistenHashRingVirtualNumber = 32;
 
     class HdfsScanRangeHasher {
@@ -193,7 +193,7 @@ public class HDFSBackendSelector implements BackendSelector {
         }
     }
 
-    private HashRing makeHashRing() {
+    private HashRing makeHashRing(List<TScanRangeLocations> remoteScanRangeLocations) {
         Set<ComputeNode> nodes = assignedScansPerComputeNode.keySet();
         HashRing hashRing = null;
         if (nodes.size() > kMaxNodeSizeUseRendezvousHashRing) {
@@ -251,14 +251,14 @@ public class HDFSBackendSelector implements BackendSelector {
                 }
             }
         } else {
-            remoteScanRangeLocations = locations;
+            remoteScanRangeLocations = locations.subList(0, 1 * 1000);
         }
         if (remoteScanRangeLocations.isEmpty()) {
             return;
         }
 
         // use consistent hashing to schedule remote scan ranges
-        HashRing hashRing = makeHashRing();
+        HashRing hashRing = makeHashRing(remoteScanRangeLocations);
         if (shuffleScanRange) {
             Collections.shuffle(remoteScanRangeLocations);
         }
