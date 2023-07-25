@@ -251,7 +251,12 @@ public class HDFSBackendSelector implements BackendSelector {
                 }
             }
         } else {
-            remoteScanRangeLocations = locations.subList(0, ConnectContext.get().getSessionVariable().getScanRangeSize());
+            if (locations.size() > ConnectContext.get().getSessionVariable().getScanRangeSize()) {
+                remoteScanRangeLocations =
+                        locations.subList(0, ConnectContext.get().getSessionVariable().getScanRangeSize());
+            } else {
+                remoteScanRangeLocations = locations;
+            }
         }
         if (remoteScanRangeLocations.isEmpty()) {
             return;
