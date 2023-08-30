@@ -403,6 +403,9 @@ public class OperationType {
     // constraint properties
     public static final short OP_MODIFY_TABLE_CONSTRAINT_PROPERTY = 11130;
 
+    // external table analyze
+    public static final short OP_ADD_EXTERNAL_ANALYZE_STATUS = 11200;
+
     //Database json format log
     public static final short OP_CREATE_DB_V2 = 12001;
     public static final short OP_ALTER_DB_V2 = 12002;

@@ -101,6 +101,7 @@ import com.starrocks.staros.StarMgrServer;
 import com.starrocks.statistic.AnalyzeJob;
 import com.starrocks.statistic.AnalyzeStatus;
 import com.starrocks.statistic.BasicStatsMeta;
+import com.starrocks.statistic.ExternalAnalyzeStatus;
 import com.starrocks.statistic.HistogramStatsMeta;
 import com.starrocks.statistic.NativeAnalyzeStatus;
 import com.starrocks.storagevolume.StorageVolume;
@@ -912,6 +913,11 @@ public class EditLog {
                 case OperationType.OP_REMOVE_ANALYZE_STATUS: {
                     NativeAnalyzeStatus analyzeStatus = (NativeAnalyzeStatus) journal.getData();
                     globalStateMgr.getAnalyzeMgr().replayRemoveAnalyzeStatus(analyzeStatus);
+                    break;
+                }
+                case OperationType.OP_ADD_EXTERNAL_ANALYZE_STATUS: {
+                    ExternalAnalyzeStatus analyzeStatus = (ExternalAnalyzeStatus) journal.getData();
+                    globalStateMgr.getAnalyzeMgr().replayAddAnalyzeStatus(analyzeStatus);
                     break;
                 }
                 case OperationType.OP_ADD_BASIC_STATS_META: {
@@ -1878,6 +1884,8 @@ public class EditLog {
     public void logAddAnalyzeStatus(AnalyzeStatus status) {
         if (status.isNative()) {
             logEdit(OperationType.OP_ADD_ANALYZE_STATUS, (NativeAnalyzeStatus) status);
+        } else {
+            logEdit(OperationType.OP_ADD_EXTERNAL_ANALYZE_STATUS, (ExternalAnalyzeStatus) status);
         }
     }
 
