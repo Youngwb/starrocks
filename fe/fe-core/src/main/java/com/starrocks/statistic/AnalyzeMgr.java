@@ -637,7 +637,7 @@ public class AnalyzeMgr implements Writable {
 
         int analyzeStatusSize = reader.readInt();
         for (int i = 0; i < analyzeStatusSize; ++i) {
-            NativeAnalyzeStatus analyzeStatus = reader.readJson(NativeAnalyzeStatus.class);
+            AnalyzeStatus analyzeStatus = reader.readJson(AnalyzeStatus.class);
             replayAddAnalyzeStatus(analyzeStatus);
         }
 
