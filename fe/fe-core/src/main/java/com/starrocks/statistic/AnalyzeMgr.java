@@ -595,10 +595,8 @@ public class AnalyzeMgr implements Writable {
     }
 
     public void save(DataOutputStream dos) throws IOException, SRMetaBlockException {
-
-        List<NativeAnalyzeStatus> analyzeStatuses = getAnalyzeStatusMap().values().stream().
-                filter(AnalyzeStatus::isNative).
-                map(status -> (NativeAnalyzeStatus) status).distinct().collect(Collectors.toList());
+        List<AnalyzeStatus> analyzeStatuses = getAnalyzeStatusMap().values().stream()
+                .distinct().collect(Collectors.toList());
 
         int numJson = 1 + analyzeJobMap.size()
                 + 1 + analyzeStatuses.size()
