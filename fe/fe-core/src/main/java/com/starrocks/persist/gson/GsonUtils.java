@@ -366,7 +366,7 @@ public class GsonUtils {
 
     public static final RuntimeTypeAdapterFactory<AnalyzeStatus> ANALYZE_STATUS_RUNTIME_TYPE_ADAPTER_FACTORY =
             RuntimeTypeAdapterFactory.of(AnalyzeStatus.class, "clazz")
-                    .registerSubtype(NativeAnalyzeStatus.class, "NativeAnalyzeStatus")
+                    .registerSubtype(NativeAnalyzeStatus.class, "NativeAnalyzeStatus", true)
                     .registerSubtype(ExternalAnalyzeStatus.class, "ExternalAnalyzeStatus");
 
     private static final JsonSerializer<LocalDateTime> LOCAL_DATE_TIME_TYPE_SERIALIZER =
