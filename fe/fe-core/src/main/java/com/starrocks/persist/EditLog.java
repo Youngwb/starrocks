@@ -920,6 +920,11 @@ public class EditLog {
                     globalStateMgr.getAnalyzeMgr().replayAddAnalyzeStatus(analyzeStatus);
                     break;
                 }
+                case OperationType.OP_REMOVE_EXTERNAL_ANALYZE_STATUS: {
+                    ExternalAnalyzeStatus analyzeStatus = (ExternalAnalyzeStatus) journal.getData();
+                    globalStateMgr.getAnalyzeMgr().replayRemoveAnalyzeStatus(analyzeStatus);
+                    break;
+                }
                 case OperationType.OP_ADD_BASIC_STATS_META: {
                     BasicStatsMeta basicStatsMeta = (BasicStatsMeta) journal.getData();
                     globalStateMgr.getAnalyzeMgr().replayAddBasicStatsMeta(basicStatsMeta);
@@ -1892,6 +1897,8 @@ public class EditLog {
     public void logRemoveAnalyzeStatus(AnalyzeStatus status) {
         if (status.isNative()) {
             logEdit(OperationType.OP_REMOVE_ANALYZE_STATUS, (NativeAnalyzeStatus) status);
+        } else {
+            logEdit(OperationType.OP_REMOVE_EXTERNAL_ANALYZE_STATUS, (ExternalAnalyzeStatus) status);
         }
     }
 

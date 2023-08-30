@@ -1123,7 +1123,8 @@ public class StmtExecutor {
         DropStatsStmt dropStatsStmt = (DropStatsStmt) parsedStmt;
         Table table = MetaUtils.getTable(context, dropStatsStmt.getTableName());
         if (dropStatsStmt.isExternal()) {
-            GlobalStateMgr.getCurrentAnalyzeMgr().dropExternalStats(table.getUUID());
+            GlobalStateMgr.getCurrentAnalyzeMgr().dropExternalAnalyzeStatus(table.getUUID());
+            GlobalStateMgr.getCurrentAnalyzeMgr().dropExternalBasicStatsData(table.getUUID());
             List<String> columns = table.getBaseSchema().stream().map(Column::getName).collect(Collectors.toList());
             GlobalStateMgr.getCurrentStatisticStorage().expireConnectorTableColumnStatistics(table, columns);
         } else {

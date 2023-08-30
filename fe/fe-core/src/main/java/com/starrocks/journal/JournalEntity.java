@@ -897,6 +897,11 @@ public class JournalEntity implements Writable {
                 isRead = true;
                 break;
             }
+            case OperationType.OP_REMOVE_EXTERNAL_ANALYZE_STATUS: {
+                data = ExternalAnalyzeStatus.read(in);
+                isRead = true;
+                break;
+            }
             case OperationType.OP_ADD_BASIC_STATS_META: {
                 data = BasicStatsMeta.read(in);
                 isRead = true;

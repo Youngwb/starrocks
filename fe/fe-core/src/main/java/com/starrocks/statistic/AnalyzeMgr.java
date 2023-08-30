@@ -140,10 +140,6 @@ public class AnalyzeMgr implements Writable {
         analyzeStatusMap.put(status.getId(), status);
     }
 
-    public void addOrUpdateAnalyzeStatus(AnalyzeStatus status) {
-        analyzeStatusMap.put(status.getId(), status);
-    }
-
     public void replayRemoveAnalyzeStatus(AnalyzeStatus status) {
         analyzeStatusMap.remove(status.getId());
     }
@@ -180,13 +176,19 @@ public class AnalyzeMgr implements Writable {
         }
     }
 
-    public void dropExternalStats(String tableUUID) {
+    public void dropExternalAnalyzeStatus(String tableUUID) {
         List<AnalyzeStatus> expireList = analyzeStatusMap.values().stream().
                 filter(status -> status instanceof ExternalAnalyzeStatus).
                 filter(status -> ((ExternalAnalyzeStatus) status).getTableUUID().equals(tableUUID)).
                 collect(Collectors.toList());
 
         expireList.forEach(status -> analyzeStatusMap.remove(status.getId()));
+        for (AnalyzeStatus status : expireList) {
+            GlobalStateMgr.getCurrentState().getEditLog().logRemoveAnalyzeStatus(status);
+        }
+    }
+
+    public void dropExternalBasicStatsData(String tableUUID) {
         StatisticExecutor statisticExecutor = new StatisticExecutor();
         statisticExecutor.dropTableStatistics(StatisticUtils.buildConnectContext(), tableUUID);
     }
