@@ -23,6 +23,7 @@ import com.starrocks.common.io.Writable;
 import com.starrocks.persist.gson.GsonUtils;
 import com.starrocks.qe.ShowResultSet;
 
+import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -216,5 +217,10 @@ public class ExternalAnalyzeStatus implements AnalyzeStatus, Writable {
     public void write(DataOutput out) throws IOException {
         String s = GsonUtils.GSON.toJson(this);
         Text.writeString(out, s);
+    }
+
+    public static ExternalAnalyzeStatus read(DataInput in) throws IOException {
+        String s = Text.readString(in);
+        return GsonUtils.GSON.fromJson(s, ExternalAnalyzeStatus.class);
     }
 }
