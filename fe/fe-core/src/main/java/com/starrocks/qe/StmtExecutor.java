@@ -904,6 +904,7 @@ public class StmtExecutor {
         coord.exec();
         coord.setTopProfileSupplier(this::buildTopLevelProfile);
         coord.setExecPlanSupplier(() -> execPlan);
+        coord.clearPreprocessorScanRangeAssignment();
 
         RowBatch batch;
         boolean isOutfileQuery = false;

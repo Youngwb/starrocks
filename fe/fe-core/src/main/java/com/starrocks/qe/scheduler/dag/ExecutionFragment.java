@@ -398,4 +398,8 @@ public class ExecutionFragment {
 
         return childHasBucketShuffle;
     }
+
+    public void clearScanRangeAssignment() {
+        scanRangeAssignment.clear();
+    }
 }

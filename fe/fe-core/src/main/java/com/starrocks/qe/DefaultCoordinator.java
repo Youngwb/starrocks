@@ -1045,4 +1045,11 @@ public class DefaultCoordinator extends Coordinator {
     public boolean isProfileAlreadyReported() {
         return this.queryProfile.isProfileAlreadyReported();
     }
+
+    @Override
+    public void clearPreprocessorScanRangeAssignment() {
+        for (ExecutionFragment execFragment : executionDAG.getFragmentsInPostorder()) {
+            execFragment.clearScanRangeAssignment();
+        }
+    }
 }

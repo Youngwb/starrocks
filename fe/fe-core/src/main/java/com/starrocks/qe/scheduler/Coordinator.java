@@ -207,4 +207,5 @@ public abstract class Coordinator {
 
     public abstract boolean isProfileAlreadyReported();
 
+    public abstract void clearPreprocessorScanRangeAssignment();
 }
