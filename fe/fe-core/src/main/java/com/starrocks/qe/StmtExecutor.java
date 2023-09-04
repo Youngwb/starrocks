@@ -904,6 +904,7 @@ public class StmtExecutor {
         coord.exec();
         coord.setTopProfileSupplier(this::buildTopLevelProfile);
         coord.setExecPlanSupplier(() -> execPlan);
+        // coordinator scan range assignment could clear after deliver fragment
         coord.clearPreprocessorScanRangeAssignment();
 
         RowBatch batch;
