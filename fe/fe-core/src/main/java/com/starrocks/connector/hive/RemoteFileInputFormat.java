@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.starrocks.connector.exception.StarRocksConnectorException;
 import com.starrocks.thrift.THdfsFileFormat;
 
+import static com.starrocks.connector.hive.HiveClassNames.DELTA_INPUT_FORMAT_CLASS;
 import static com.starrocks.connector.hive.HiveClassNames.HUDI_PARQUET_INPUT_FORMAT;
 import static com.starrocks.connector.hive.HiveClassNames.MAPRED_PARQUET_INPUT_FORMAT_CLASS;
 import static com.starrocks.connector.hive.HiveClassNames.ORC_INPUT_FORMAT_CLASS;
@@ -35,6 +36,7 @@ public enum RemoteFileInputFormat {
                     .put(MAPRED_PARQUET_INPUT_FORMAT_CLASS, PARQUET)
                     .put(ORC_INPUT_FORMAT_CLASS, ORC)
                     .put(TEXT_INPUT_FORMAT_CLASS, TEXT)
+                    .put(DELTA_INPUT_FORMAT_CLASS, PARQUET)
                     .build();
     private static final ImmutableMap<String, Boolean> FILE_FORMAT_SPLITTABLE_INFOS =
             new ImmutableMap.Builder<String, Boolean>()
