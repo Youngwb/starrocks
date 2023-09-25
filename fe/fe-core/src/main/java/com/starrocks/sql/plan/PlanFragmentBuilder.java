@@ -1897,6 +1897,9 @@ public class PlanFragmentBuilder {
                     return true;
                 }
             }
+            if (node instanceof IcebergScanNode) {
+                return true;
+            }
             if (node instanceof ExchangeNode) {
                 return false;
             }
