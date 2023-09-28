@@ -109,7 +109,8 @@ public class SyncPartitionUtils {
             String granularity = ((StringLiteral) functionCallExpr.getChild(0)).getValue().toLowerCase();
             rollupRange = mappingRangeList(baseRangeMap, granularity, partitionType);
         } else if (functionCallExpr.getFnName().getFunction().equalsIgnoreCase(FunctionSet.STR2DATE)) {
-            rollupRange = mappingRangeList(baseRangeMap);
+            // rollupRange = mappingRangeList(baseRangeMap);
+            rollupRange = baseRangeMap;
         }
         return getRangePartitionDiff(baseRangeMap, mvRangeMap, rollupRange);
     }
