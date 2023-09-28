@@ -640,6 +640,13 @@ public class PartitionBasedMvRefreshProcessor extends BaseTaskRunProcessor {
         try {
             // Collect the ref base table's partition range map.
             refBaseTablePartitionMap = PartitionUtil.getPartitionKeyRange(refBaseTable, refBaseTablePartitionColumn);
+            if (partitionExpr instanceof FunctionCallExpr) {
+                FunctionCallExpr functionCallExpr = (FunctionCallExpr) partitionExpr;
+                if (functionCallExpr.getFnName().getFunction().equalsIgnoreCase(FunctionSet.STR2DATE)) {
+                    // should convert refBaseTablePartitionMap from varchar to date
+                    refBaseTablePartitionMap = SyncPartitionUtils.mappingRangeList(refBaseTablePartitionMap);
+                }
+            }
 
             // To solve multi partition columns' problem of external table, record the mv partition name to all the same
             // partition names map here.
@@ -656,10 +663,6 @@ public class PartitionBasedMvRefreshProcessor extends BaseTaskRunProcessor {
                         functionCallExpr.getFnName().getFunction().equalsIgnoreCase(FunctionSet.STR2DATE)) {
                     rangePartitionDiff = SyncPartitionUtils.getRangePartitionDiffOfExpr(refBaseTablePartitionMap,
                             mvRangePartitionMap, functionCallExpr, refBaseTablePartitionColumn.getPrimitiveType());
-                    if (functionCallExpr.getFnName().getFunction().equalsIgnoreCase(FunctionSet.STR2DATE)) {
-                        // should convert refBaseTablePartitionMap from varchar to date
-                        refBaseTablePartitionMap = SyncPartitionUtils.mappingRangeList(refBaseTablePartitionMap);
-                    }
                 } else {
                     throw new SemanticException("Materialized view partition function " +
                             functionCallExpr.getFnName().getFunction() +
