@@ -639,7 +639,9 @@ public class PartitionBasedMvRefreshProcessor extends BaseTaskRunProcessor {
         Map<String, Set<String>> refBaseTableMVPartitionMap = Maps.newHashMap();
         try {
             // Collect the ref base table's partition range map.
-            refBaseTablePartitionMap = PartitionUtil.getPartitionKeyRange(refBaseTable, refBaseTablePartitionColumn);
+            refBaseTablePartitionMap = PartitionUtil.getPartitionKeyRange(
+                    refBaseTable, refBaseTablePartitionColumn, partitionExpr);
+            /*
             if (partitionExpr instanceof FunctionCallExpr) {
                 FunctionCallExpr functionCallExpr = (FunctionCallExpr) partitionExpr;
                 if (functionCallExpr.getFnName().getFunction().equalsIgnoreCase(FunctionSet.STR2DATE)) {
@@ -647,6 +649,8 @@ public class PartitionBasedMvRefreshProcessor extends BaseTaskRunProcessor {
                     refBaseTablePartitionMap = SyncPartitionUtils.mappingRangeList(refBaseTablePartitionMap);
                 }
             }
+
+             */
 
             // To solve multi partition columns' problem of external table, record the mv partition name to all the same
             // partition names map here.
@@ -1128,10 +1132,10 @@ public class PartitionBasedMvRefreshProcessor extends BaseTaskRunProcessor {
                             continue;
                         }
 
-                        Map<String, Range<PartitionKey>> snapshotPartitionMap = PartitionUtil.
-                                getPartitionKeyRange(snapshotTable, partitionColumn);
-                        Map<String, Range<PartitionKey>> currentPartitionMap = PartitionUtil.
-                                getPartitionKeyRange(table, partitionColumn);
+                        Map<String, Range<PartitionKey>> snapshotPartitionMap = PartitionUtil.getPartitionKeyRange(
+                                snapshotTable, partitionColumn, MaterializedView.getPartitionExpr(materializedView));
+                        Map<String, Range<PartitionKey>> currentPartitionMap = PartitionUtil.getPartitionKeyRange(
+                                table, partitionColumn, MaterializedView.getPartitionExpr(materializedView));
                         boolean changed =
                                 SyncPartitionUtils.hasPartitionChange(snapshotPartitionMap, currentPartitionMap);
                         if (changed) {
@@ -1159,10 +1163,10 @@ public class PartitionBasedMvRefreshProcessor extends BaseTaskRunProcessor {
                             continue;
                         }
 
-                        Map<String, Range<PartitionKey>> snapshotPartitionMap = PartitionUtil.
-                                getPartitionKeyRange(snapshotTable, partitionColumn);
-                        Map<String, Range<PartitionKey>> currentPartitionMap = PartitionUtil.
-                                getPartitionKeyRange(table, partitionColumn);
+                        Map<String, Range<PartitionKey>> snapshotPartitionMap = PartitionUtil.getPartitionKeyRange(
+                                snapshotTable, partitionColumn, MaterializedView.getPartitionExpr(materializedView));
+                        Map<String, Range<PartitionKey>> currentPartitionMap = PartitionUtil.getPartitionKeyRange(
+                                table, partitionColumn, MaterializedView.getPartitionExpr(materializedView));
                         boolean changed =
                                 SyncPartitionUtils.hasPartitionChange(snapshotPartitionMap, currentPartitionMap);
                         if (changed) {
@@ -1191,10 +1195,10 @@ public class PartitionBasedMvRefreshProcessor extends BaseTaskRunProcessor {
                             continue;
                         }
 
-                        Map<String, Range<PartitionKey>> snapshotPartitionMap = PartitionUtil.
-                                getPartitionKeyRange(snapshotTable, partitionColumn);
-                        Map<String, Range<PartitionKey>> currentPartitionMap = PartitionUtil.
-                                getPartitionKeyRange(table, partitionColumn);
+                        Map<String, Range<PartitionKey>> snapshotPartitionMap = PartitionUtil.getPartitionKeyRange(
+                                snapshotTable, partitionColumn, MaterializedView.getPartitionExpr(materializedView));
+                        Map<String, Range<PartitionKey>> currentPartitionMap = PartitionUtil.getPartitionKeyRange(
+                                table, partitionColumn, MaterializedView.getPartitionExpr(materializedView));
                         return SyncPartitionUtils.hasRangePartitionChanged(snapshotPartitionMap, currentPartitionMap);
                     }
                 }

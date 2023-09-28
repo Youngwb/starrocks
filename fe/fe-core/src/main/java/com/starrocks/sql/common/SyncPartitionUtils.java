@@ -582,7 +582,7 @@ public class SyncPartitionUtils {
                 baseTableVersionMap.keySet().removeIf(partitionName -> {
                     try {
                         Set<String> partitionNames = PartitionUtil.getMVPartitionName(baseTable, partitionColumn,
-                                Lists.newArrayList(partitionName));
+                                Lists.newArrayList(partitionName), expr);
                         return partitionNames != null && partitionNames.size() == 1 &&
                                 Lists.newArrayList(partitionNames).get(0).equals(mvPartitionName);
                     } catch (AnalysisException e) {
