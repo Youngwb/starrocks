@@ -656,6 +656,10 @@ public class PartitionBasedMvRefreshProcessor extends BaseTaskRunProcessor {
                         functionCallExpr.getFnName().getFunction().equalsIgnoreCase(FunctionSet.STR2DATE)) {
                     rangePartitionDiff = SyncPartitionUtils.getRangePartitionDiffOfExpr(refBaseTablePartitionMap,
                             mvRangePartitionMap, functionCallExpr, refBaseTablePartitionColumn.getPrimitiveType());
+                    if (functionCallExpr.getFnName().getFunction().equalsIgnoreCase(FunctionSet.STR2DATE)) {
+                        // should convert refBaseTablePartitionMap from varchar to date
+                        refBaseTablePartitionMap = SyncPartitionUtils.mappingRangeList(refBaseTablePartitionMap);
+                    }
                 } else {
                     throw new SemanticException("Materialized view partition function " +
                             functionCallExpr.getFnName().getFunction() +

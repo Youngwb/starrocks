@@ -151,7 +151,7 @@ public class SyncPartitionUtils {
         return diff;
     }
 
-    private static Map<String, Range<PartitionKey>> mappingRangeList(Map<String, Range<PartitionKey>> baseRangeMap) {
+    public static Map<String, Range<PartitionKey>> mappingRangeList(Map<String, Range<PartitionKey>> baseRangeMap) {
         Map<String, Range<PartitionKey>> result = Maps.newHashMap();
         try {
             for (Map.Entry<String, Range<PartitionKey>> rangeEntry : baseRangeMap.entrySet()) {
