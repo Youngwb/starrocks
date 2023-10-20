@@ -179,7 +179,7 @@ class PushDownAggregateCollector extends OptExpressionVisitor<Void, AggregatePus
 
                 List<ScalarOperator> newWhenThen = Lists.newArrayList();
                 for (int i = 0; i < caseWhen.getWhenClauseSize(); i++) {
-                    newWhenThen.add(caseWhen.getWhenClause(i));
+                    newWhenThen.add(ConstantOperator.createBoolean(false));
                     newWhenThen.add(caseWhen.getThenClause(i));
                 }
 
@@ -193,6 +193,7 @@ class PushDownAggregateCollector extends OptExpressionVisitor<Void, AggregatePus
                     FunctionSet.IF.equals(callInput.getFunction().getFunctionName().getFunction())) {
                 aggInput.getChild(0).getUsedColumns().getStream().map(factory::getColumnRef)
                         .forEach(v -> context.groupBys.put(v, v));
+                aggInput.setChild(0, ConstantOperator.createBoolean(false));
             }
         }
 
