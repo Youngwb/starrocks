@@ -300,6 +300,8 @@ public class SessionVariable implements Serializable, Writable, Cloneable {
     public static final String CBO_USE_DB_LOCK = "cbo_use_lock_db";
     public static final String CBO_PREDICATE_SUBFIELD_PATH = "cbo_enable_predicate_subfield_path";
 
+    public static final String SKEW_JOIN_RAND_RANGE = "skew_join_rand_range";
+
     // --------  New planner session variables end --------
 
     // Type of compression of transmitted data
@@ -1420,6 +1422,9 @@ public class SessionVariable implements Serializable, Writable, Cloneable {
 
     @VarAttr(name = CROSS_JOIN_COST_PENALTY, flag = VariableMgr.INVISIBLE)
     private long crossJoinCostPenalty = 1000000;
+
+    @VarAttr(name = SKEW_JOIN_RAND_RANGE, flag = VariableMgr.INVISIBLE)
+    private int skewJoinRandRange = 3000000;
 
     public String getHiveTempStagingDir() {
         return hiveTempStagingDir;
@@ -2780,6 +2785,10 @@ public class SessionVariable implements Serializable, Writable, Cloneable {
 
     public void setCrossJoinCostPenalty(long crossJoinCostPenalty) {
         this.crossJoinCostPenalty = crossJoinCostPenalty;
+    }
+
+    public int getSkewJoinRandRange() {
+        return skewJoinRandRange;
     }
 
     // Serialize to thrift object
