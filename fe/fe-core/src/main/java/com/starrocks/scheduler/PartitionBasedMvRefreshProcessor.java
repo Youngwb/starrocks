@@ -170,6 +170,7 @@ public class PartitionBasedMvRefreshProcessor extends BaseTaskRunProcessor {
     // 5. update the source table version map if refresh task completes successfully
     @Override
     public void processTaskRun(TaskRunContext context) throws Exception {
+        Thread.sleep(30 * 1000);
         prepare(context);
 
         Preconditions.checkState(materializedView != null);
