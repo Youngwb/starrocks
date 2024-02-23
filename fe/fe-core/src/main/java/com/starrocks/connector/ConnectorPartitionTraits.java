@@ -283,7 +283,8 @@ public abstract class ConnectorPartitionTraits {
                     long basePartitionVersion = latestPartitionInfo.get(basePartitionName).getModifiedTime();
 
                     MaterializedView.BasePartitionInfo basePartitionInfo = versionEntry.getValue();
-                    if (basePartitionInfo == null || basePartitionVersion != basePartitionInfo.getVersion()) {
+                    if ((basePartitionInfo == null || basePartitionVersion != basePartitionInfo.getVersion())
+                            && basePartitionVersion != -1) {
                         result.add(basePartitionName);
                     }
                 }
