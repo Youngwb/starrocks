@@ -284,7 +284,8 @@ public abstract class ConnectorPartitionTraits {
 
                     MaterializedView.BasePartitionInfo basePartitionInfo = versionEntry.getValue();
                     if ((basePartitionInfo == null || basePartitionVersion != basePartitionInfo.getVersion())
-                            && basePartitionVersion != -1) {
+                            // base partition version is not valid when it is less than 0
+                            && basePartitionVersion >= 0) {
                         result.add(basePartitionName);
                     }
                 }
