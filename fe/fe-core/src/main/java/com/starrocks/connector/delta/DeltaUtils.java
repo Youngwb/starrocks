@@ -78,8 +78,10 @@ public class DeltaUtils {
             LOG.error("Failed to find Delta table for {}.{}.{}, {}", catalog, dbName, tblName, e.getMessage());
             throw new SemanticException("Failed to find Delta table for " + catalog + "." + dbName + "." + tblName);
         } catch (Exception e) {
-            LOG.error("Failed to get latest snapshot for {}.{}.{}, {}", catalog, dbName, tblName, e.getMessage());
-            throw new SemanticException("Failed to get latest snapshot for " + catalog + "." + dbName + "." + tblName);
+            LOG.error("Failed to get latest snapshot for {}.{}.{}, exception: {}, cause: {}",
+                    catalog, dbName, tblName, e, e.getCause());
+            throw new SemanticException(String.format("Failed to get latest snapshot for %s.%s.%s, exception: %s, cause: %s",
+                    catalog, dbName, tblName, e, e.getCause()));
         }
 
         StructType deltaSchema = snapshot.getSchema(deltaEngine);
