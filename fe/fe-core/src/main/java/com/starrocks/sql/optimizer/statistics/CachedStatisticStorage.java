@@ -166,6 +166,14 @@ public class CachedStatisticStorage implements StatisticStorage {
         try {
             CompletableFuture<Map<ConnectorTableColumnKey, Optional<ConnectorTableColumnStats>>> result =
                     connectorTableCachedStatistics.getAll(cacheKeys);
+            result.whenComplete((r, e) -> {
+                if (e != null) {
+                    LOG.warn("Failed to execute connectorTableCachedStatistics.getAll", e);
+                }
+                LOG.info("Get connector table statistics result: {}", r);
+                LOG.info("current thread : {}", Thread.currentThread().getName());
+            });
+
             if (result.isDone()) {
                 List<ConnectorTableColumnStats> columnStatistics = new ArrayList<>();
                 Map<ConnectorTableColumnKey, Optional<ConnectorTableColumnStats>> realResult;
