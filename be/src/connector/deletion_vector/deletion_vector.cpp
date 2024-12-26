@@ -99,8 +99,7 @@ StatusOr<std::unique_ptr<RandomAccessFile>> DeletionVector::open_random_access_f
     return file;
 }
 
-Status DeletionVector::deserialized_inline_dv(std::string& encoded_bitmap_data,
-                                              std::set<int64_t>* need_skip_rowids) const {
+Status DeletionVector::deserialized_inline_dv(std::string& encoded_bitmap_data, std::set<int64_t>* need_skip_rowids) {
     ASSIGN_OR_RETURN(auto decoded_bitmap_data, base85_decode(encoded_bitmap_data));
     uint32_t inline_magic_number;
     memcpy(&inline_magic_number, decoded_bitmap_data.data(), DeletionVector::MAGIC_NUMBER_LENGTH);
@@ -115,27 +114,36 @@ Status DeletionVector::deserialized_inline_dv(std::string& encoded_bitmap_data,
 
 Status DeletionVector::deserialized_deletion_vector(uint32_t magic_number, std::unique_ptr<char[]> serialized_dv,
                                                     int64_t serialized_bitmap_length,
-                                                    std::set<int64_t>* need_skip_rowids) const {
-    if (magic_number != MAGIC_NUMBER) {
-        std::stringstream ss;
-        ss << "Unexpected magic number : " << magic_number;
-        return Status::RuntimeError(ss.str());
+                                                    std::set<int64_t>* need_skip_rowids) {
+    {
+        SCOPED_RAW_TIMER(&_build_stats.bitmap_deserialized_ns);
+        if (magic_number != MAGIC_NUMBER) {
+            std::stringstream ss;
+            ss << "Unexpected magic number : " << magic_number;
+            return Status::RuntimeError(ss.str());
+        }
+
+        // Construct the roaring bitmap of corresponding deletion vector
+        roaring64_bitmap_t* bitmap =
+                roaring64_bitmap_portable_deserialize_safe(serialized_dv.get(), serialized_bitmap_length);
+        if (bitmap == nullptr) {
+            return Status::RuntimeError("deserialize roaring64 bitmap error");
+        }
+
+        // Construct _need_skip_rowids from bitmap
+        uint64_t bitmap_cardinality = roaring64_bitmap_get_cardinality(bitmap);
+        std::unique_ptr<uint64_t[]> bitmap_array(new uint64_t[bitmap_cardinality]);
+        {
+            SCOPED_RAW_TIMER(&_build_stats.bitmap_to_array_ns);
+            roaring64_bitmap_to_uint64_array(bitmap, bitmap_array.get());
+        }
+        {
+            SCOPED_RAW_TIMER(&_build_stats.build_skip_set_ns);
+            need_skip_rowids->insert(bitmap_array.get(), bitmap_array.get() + bitmap_cardinality);
+        }
+        roaring64_bitmap_free(bitmap);
     }
-
-    // Construct the roaring bitmap of corresponding deletion vector
-    roaring64_bitmap_t* bitmap =
-            roaring64_bitmap_portable_deserialize_safe(serialized_dv.get(), serialized_bitmap_length);
-    if (bitmap == nullptr) {
-        return Status::RuntimeError("deserialize roaring64 bitmap error");
-    }
-
-    // Construct _need_skip_rowids from bitmap
-    uint64_t bitmap_cardinality = roaring64_bitmap_get_cardinality(bitmap);
-    std::unique_ptr<uint64_t[]> bitmap_array(new uint64_t[bitmap_cardinality]);
-    roaring64_bitmap_to_uint64_array(bitmap, bitmap_array.get());
-    need_skip_rowids->insert(bitmap_array.get(), bitmap_array.get() + bitmap_cardinality);
-
-    roaring64_bitmap_free(bitmap);
+    update_dv_build_counter(_params.profile->runtime_profile, _build_stats);
     return Status::OK();
 }
 
@@ -275,6 +283,27 @@ void DeletionVector::update_dv_file_io_counter(
         COUNTER_UPDATE(datacache_write_fail_bytes, stats.write_cache_fail_bytes);
         COUNTER_UPDATE(datacache_read_block_buffer_counter, stats.read_block_buffer_count);
         COUNTER_UPDATE(datacache_read_block_buffer_bytes, stats.read_block_buffer_bytes);
+    }
+}
+
+void DeletionVector::update_dv_build_counter(RuntimeProfile* parent_profile,
+                                             const DeletionVectorBuildStats& build_stats) {
+    const std::string DV_TIMER = DeletionVector::DELETION_VECTOR;
+    ADD_COUNTER(parent_profile, DV_TIMER, TUnit::NONE);
+    {
+        static const char* prefix = "DV_BuildTime";
+        ADD_CHILD_COUNTER(parent_profile, prefix, TUnit::NONE, DV_TIMER);
+
+        RuntimeProfile::Counter* bitmap_deserialized_timer =
+                ADD_CHILD_COUNTER(parent_profile, "DV_BitmapDeserializedTime", TUnit::TIME_NS, prefix);
+        RuntimeProfile::Counter* bitmap_to_array_timer =
+                ADD_CHILD_COUNTER(parent_profile, "DV_BitmapToArrayTime", TUnit::TIME_NS, prefix);
+        RuntimeProfile::Counter* build_skip_set_timer =
+                ADD_CHILD_COUNTER(parent_profile, "DV_BuildSkipSetTime", TUnit::TIME_NS, prefix);
+
+        COUNTER_UPDATE(bitmap_deserialized_timer, build_stats.bitmap_deserialized_ns);
+        COUNTER_UPDATE(bitmap_to_array_timer, build_stats.bitmap_to_array_ns);
+        COUNTER_UPDATE(build_skip_set_timer, build_stats.build_skip_set_ns);
     }
 }
 
