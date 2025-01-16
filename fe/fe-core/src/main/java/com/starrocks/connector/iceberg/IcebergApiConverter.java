@@ -148,7 +148,7 @@ public class IcebergApiConverter {
                 case DATE:
                     return Types.DateType.get();
                 case DATETIME:
-                    return Types.TimestampType.withoutZone();
+                    return Types.TimestampType.withZone();
                 case VARCHAR:
                 case CHAR:
                     return Types.StringType.get();
