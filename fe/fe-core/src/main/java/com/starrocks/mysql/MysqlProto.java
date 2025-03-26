@@ -315,9 +315,9 @@ public class MysqlProto {
                 // AuthSwitchRequest Packet
                 MysqlCodec.writeInt1(outputStream, (byte) 0xfe);
                 MysqlCodec.writeNulTerminateString(outputStream, switchAuthPlugin);
-//                if (authMoreDataPacket != null) {
-//                    MysqlCodec.writeBytes(outputStream, authMoreDataPacket);
-//                }
+                // if (authMoreDataPacket != null) {
+                //  MysqlCodec.writeBytes(outputStream, authMoreDataPacket);
+                //  }`
                 MysqlCodec.writeBytes(outputStream, MysqlPassword.createRandomString(SCRAMBLE_LENGTH));
                 MysqlCodec.writeInt1(outputStream, 0);
 
