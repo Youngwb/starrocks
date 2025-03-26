@@ -61,6 +61,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
+import static com.starrocks.mysql.MysqlPassword.SCRAMBLE_LENGTH;
+
 // MySQL protocol util
 public class MysqlProto {
     private static final Logger LOG = LogManager.getLogger(MysqlProto.class);
@@ -313,9 +315,10 @@ public class MysqlProto {
                 // AuthSwitchRequest Packet
                 MysqlCodec.writeInt1(outputStream, (byte) 0xfe);
                 MysqlCodec.writeNulTerminateString(outputStream, switchAuthPlugin);
-                if (authMoreDataPacket != null) {
-                    MysqlCodec.writeBytes(outputStream, authMoreDataPacket);
-                }
+//                if (authMoreDataPacket != null) {
+//                    MysqlCodec.writeBytes(outputStream, authMoreDataPacket);
+//                }
+                MysqlCodec.writeBytes(outputStream, MysqlPassword.createRandomString(SCRAMBLE_LENGTH));
                 MysqlCodec.writeInt1(outputStream, 0);
 
                 mysqlAuthPacket.setPluginName(switchAuthPlugin);
