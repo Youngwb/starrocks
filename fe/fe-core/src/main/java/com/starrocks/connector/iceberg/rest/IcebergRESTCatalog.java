@@ -42,6 +42,7 @@ import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.exceptions.BadRequestException;
 import org.apache.iceberg.rest.RESTSessionCatalog;
 import org.apache.iceberg.rest.auth.OAuth2Properties;
+import org.apache.iceberg.util.PropertyUtil;
 import org.apache.iceberg.view.View;
 import org.apache.iceberg.view.ViewBuilder;
 import org.apache.logging.log4j.LogManager;
@@ -63,15 +64,24 @@ import static java.lang.String.format;
 import static org.apache.iceberg.CatalogUtil.configureHadoopConf;
 
 public class IcebergRESTCatalog implements IcebergCatalog {
+    public enum SessionType
+    {
+        NONE,
+        USER
+    }
 
     private static final Logger LOG = LogManager.getLogger(IcebergRESTCatalog.class);
 
     public static final String KEY_CREDENTIAL_WITH_PREFIX = ICEBERG_CUSTOM_PROPERTIES_PREFIX + "credential";
     public static final String KEY_VENDED_CREDENTIALS_ENABLED = "vended-credentials-enabled";
+    public static final String REST_CATALOG_SESSION = "iceberg.rest-catalog.session";
+    public static final String REST_CATALOG_TOKEN_EXCHANGE = "iceberg.rest-catalog.token-exchange";
 
     private String catalogName = null;
     private final Configuration conf;
     OAuth2SecurityProperties securityProperties = new OAuth2SecurityProperties(new OAuth2SecurityConfig());
+    private SessionType sessionType = SessionType.NONE;
+    private boolean preferTokenExchange = false;
     private final RESTSessionCatalog delegate;
 
     public IcebergRESTCatalog(String name, Configuration conf, Map<String, String> properties) {
@@ -97,6 +107,11 @@ public class IcebergRESTCatalog implements IcebergCatalog {
         } else {
             copiedProperties.put(AwsProperties.CLIENT_FACTORY, IcebergAwsClientFactory.class.getName());
         }
+
+        sessionType = SessionType.valueOf(
+                PropertyUtil.propertyAsString(copiedProperties, REST_CATALOG_SESSION, "NONE").toUpperCase());
+        preferTokenExchange = Boolean.parseBoolean(
+                PropertyUtil.propertyAsString(copiedProperties, REST_CATALOG_TOKEN_EXCHANGE, "false"));
 
         // setup oauth2
         OAuth2SecurityConfig securityConfig = OAuth2SecurityConfigBuilder.build(copiedProperties);
@@ -307,18 +322,26 @@ public class IcebergRESTCatalog implements IcebergCatalog {
     }
 
     private SessionCatalog.SessionContext convertContext(ConnectContext context) {
-        String sessionId = format("%s-%s", context.getQualifiedUser(), context.getSessionId());
+        return switch (sessionType) {
+            case NONE -> SessionCatalog.SessionContext.createEmpty();
+            case USER -> {
+                String sessionId = format("%s-%s", context.getQualifiedUser(), context.getSessionId());
 
-        Map<String, String> credentials;
-        if (Strings.isNullOrEmpty(context.getAuthToken())) {
-            return SessionCatalog.SessionContext.createEmpty();
-        } else {
-            credentials = ImmutableMap.<String, String>builder()
-                    .put(OAuth2Properties.ACCESS_TOKEN_TYPE, context.getAuthToken())
-                    .buildOrThrow();
-        }
+                Map<String, String> credentials;
+                if (preferTokenExchange) {
+                    credentials = ImmutableMap.<String, String>builder()
+                            .put(OAuth2Properties.ACCESS_TOKEN_TYPE, context.getAuthToken())
+                            .buildOrThrow();
+                } else {
+                    credentials = ImmutableMap.<String, String>builder()
+                            .put(OAuth2Properties.TOKEN, context.getAuthToken())
+                            .buildOrThrow();
+                }
 
-        return new SessionCatalog.SessionContext(sessionId, context.getQualifiedUser(), credentials, ImmutableMap.of(),
-                context.getCurrentUserIdentity());
+                yield  new SessionCatalog.SessionContext(sessionId, context.getQualifiedUser(), credentials, ImmutableMap.of(),
+                        context.getCurrentUserIdentity());
+            }
+        };
+
     }
 }

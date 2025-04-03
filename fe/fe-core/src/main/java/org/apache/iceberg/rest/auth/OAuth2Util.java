@@ -780,8 +780,8 @@ public class OAuth2Util {
                             parent.headers(),
                             token,
                             tokenType,
-                            parent.enableActorToken ? parent.token() : null,
-                            parent.enableActorToken ? parent.tokenType() : null,
+                            parent.token(),
+                            parent.tokenType(),
                             parent.scope(),
                             parent.oauth2ServerUri(),
                             parent.optionalOAuthParams());

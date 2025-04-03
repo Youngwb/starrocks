@@ -309,13 +309,6 @@ public class RESTSessionCatalog extends BaseViewSessionCatalog
                     AuthSession.fromAccessToken(
                             client, tokenRefreshExecutor(name), token, expiresAtMillis(mergedProps), catalogAuth);
         }
-        if (hasCredential) {
-            ImmutableMap.Builder<String, String> headersBuilder = ImmutableMap.builder();
-            headersBuilder.putAll(this.catalogAuth.headers()).putAll(OAuth2Util.basicAuthHeaders(credential));
-            this.catalogAuth.setHeaders(headersBuilder.buildKeepingLast());
-        }
-        this.catalogAuth.setEnableActorToken(
-                PropertyUtil.propertyAsBoolean(mergedProps, "enable_actor_token", false));
 
         this.pageSize = PropertyUtil.propertyAsNullableInt(mergedProps, REST_PAGE_SIZE);
         if (pageSize != null) {
