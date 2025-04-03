@@ -326,12 +326,12 @@ public class IcebergRESTCatalog implements IcebergCatalog {
             case USER -> {
                 String sessionId = format("%s-%s", context.getQualifiedUser(), context.getSessionId());
 
-                Map<String, String> credentials;
+                Map<String, String> credentials = Map.of();
                 if (preferTokenExchange) {
                     credentials = ImmutableMap.<String, String>builder()
                             .put(OAuth2Properties.ACCESS_TOKEN_TYPE, context.getAuthToken())
                             .buildOrThrow();
-                } else {
+                } else if (!Strings.isNullOrEmpty(context.getAuthToken())) {
                     credentials = ImmutableMap.<String, String>builder()
                             .put(OAuth2Properties.TOKEN, context.getAuthToken())
                             .buildOrThrow();
