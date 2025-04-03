@@ -335,6 +335,8 @@ public class IcebergRESTCatalog implements IcebergCatalog {
                     credentials = ImmutableMap.<String, String>builder()
                             .put(OAuth2Properties.TOKEN, context.getAuthToken())
                             .buildOrThrow();
+                } else {
+                    throw new StarRocksConnectorException("No token found in context");
                 }
 
                 yield new SessionCatalog.SessionContext(sessionId, context.getQualifiedUser(), credentials, ImmutableMap.of(),
