@@ -34,7 +34,7 @@ public class OpenIdConnectVerifier {
                               String requiredIssuer,
                               String requiredAudience) throws AuthenticationException {
         try {
-            // OpenIdConnectVerifier.verifyJWT(idToken, jwkSet);
+            OpenIdConnectVerifier.verifyJWT(idToken, jwkSet);
             SignedJWT signedJWT = SignedJWT.parse(idToken);
             JWTClaimsSet claims = signedJWT.getJWTClaimsSet();
             String jwtUserName = claims.getStringClaim(principalFiled);

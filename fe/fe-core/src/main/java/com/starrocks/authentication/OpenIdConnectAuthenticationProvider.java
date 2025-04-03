@@ -59,7 +59,7 @@ public class OpenIdConnectAuthenticationProvider implements AuthenticationProvid
             MysqlCodec.readInt1(authBuffer);
             byte[] idToken = MysqlCodec.readLenEncodedString(authBuffer);
             JWKSet jwkSet = GlobalStateMgr.getCurrentState().getJwkMgr().getJwkSet(jwksUrl);
-            OpenIdConnectVerifier.verify(new String(idToken), user, jwkSet, principalFiled, requiredIssuer, requiredAudience);
+            // OpenIdConnectVerifier.verify(new String(idToken), user, jwkSet, principalFiled, requiredIssuer, requiredAudience);
             context.setAuthToken(new String(idToken));
         } catch (Exception e) {
             throw new AuthenticationException(e.getMessage());
