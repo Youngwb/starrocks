@@ -64,8 +64,7 @@ import static java.lang.String.format;
 import static org.apache.iceberg.CatalogUtil.configureHadoopConf;
 
 public class IcebergRESTCatalog implements IcebergCatalog {
-    public enum SessionType
-    {
+    public enum SessionType {
         NONE,
         USER
     }
@@ -338,7 +337,7 @@ public class IcebergRESTCatalog implements IcebergCatalog {
                             .buildOrThrow();
                 }
 
-                yield  new SessionCatalog.SessionContext(sessionId, context.getQualifiedUser(), credentials, ImmutableMap.of(),
+                yield new SessionCatalog.SessionContext(sessionId, context.getQualifiedUser(), credentials, ImmutableMap.of(),
                         context.getCurrentUserIdentity());
             }
         };
