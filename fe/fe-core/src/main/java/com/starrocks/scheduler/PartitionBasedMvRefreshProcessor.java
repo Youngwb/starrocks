@@ -248,7 +248,7 @@ public class PartitionBasedMvRefreshProcessor extends BaseTaskRunProcessor {
             mvEntity.increaseRefreshRetryMetaCount(1L);
             try (Timer ignored = Tracers.watchScope("MVRefreshExternalTable")) {
                 // refresh external table meta cache before sync partitions
-                refreshExternalTable(context, baseTableCandidatePartitions);
+                // refreshExternalTable(context, baseTableCandidatePartitions);
             }
 
             if (!Config.enable_materialized_view_external_table_precise_refresh || retryNum > 1) {
