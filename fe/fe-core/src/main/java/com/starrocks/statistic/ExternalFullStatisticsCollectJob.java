@@ -189,26 +189,50 @@ public class ExternalFullStatisticsCollectJob extends StatisticsCollectJob {
         if (table.isUnPartitioned()) {
             context.put("partitionPredicate", "1=1");
         } else {
-            List<String> partitionColumnNames = table.getPartitionColumnNames();
-            List<String> partitionValues = PartitionUtil.toPartitionValues(partitionName);
-            List<String> partitionPredicate = Lists.newArrayList();
-            for (int i = 0; i < partitionColumnNames.size(); i++) {
-                String partitionColumnName = partitionColumnNames.get(i);
-                String partitionValue = partitionValues.get(i);
-                if (partitionValue.equals(nullValue)) {
-                    partitionPredicate.add(StatisticUtils.quoting(partitionColumnName) + " IS NULL");
-                } else if (isSupportedPartitionTransform(partitionColumnName)) {
-                    partitionPredicate.add(IcebergPartitionUtils.convertPartitionTransformToPredicate((IcebergTable) table,
-                            partitionColumnName, partitionValue));
-                } else {
-                    partitionPredicate.add(StatisticUtils.quoting(partitionColumnName) + " = '" + partitionValue + "'");
-                }
-            }
+            List<String> partitionPredicate = generatePartitionPredicates(table, partitionName, nullValue);
             context.put("partitionPredicate", Joiner.on(" AND ").join(partitionPredicate));
         }
 
         builder.append(build(context, BATCH_FULL_STATISTIC_TEMPLATE));
         return builder.toString();
+    }
+
+    private List<String> generatePartitionPredicates(Table table, String partitionName, String nullValue) {
+        if (table.isIcebergTable()) {
+            return generatePartitionPredicatesForIcebergTable((IcebergTable) table, partitionName);
+        }
+        List<String> partitionColumnNames = table.getPartitionColumnNames();
+        List<String> partitionValues = PartitionUtil.toPartitionValues(partitionName);
+        List<String> partitionPredicate = Lists.newArrayList();
+        for (int i = 0; i < partitionColumnNames.size(); i++) {
+            String partitionColumnName = partitionColumnNames.get(i);
+            String partitionValue = partitionValues.get(i);
+            if (partitionValue.equals(nullValue)) {
+                partitionPredicate.add(StatisticUtils.quoting(partitionColumnName) + " IS NULL");
+            } else {
+                partitionPredicate.add(StatisticUtils.quoting(partitionColumnName) + " = '" + partitionValue + "'");
+            }
+        }
+        return partitionPredicate;
+    }
+
+    private List<String> generatePartitionPredicatesForIcebergTable(IcebergTable table, String partitionName) {
+        List<String> partitionColumnNames = table.getPartitionColumnNames();
+        List<String> partitionValues = PartitionUtil.toPartitionValues(partitionName);
+        List<String> partitionPredicate = Lists.newArrayList();
+        for (int i = 0; i < partitionColumnNames.size(); i++) {
+            String partitionColumnName = partitionColumnNames.get(i);
+            String partitionValue = partitionValues.get(i);
+            if (partitionValue.equals(IcebergApiConverter.PARTITION_NULL_VALUE)) {
+                partitionPredicate.add(StatisticUtils.quoting(partitionColumnName) + " IS NULL");
+            } else if (isSupportedPartitionTransform(partitionColumnName)) {
+                partitionPredicate.add(IcebergPartitionUtils.convertPartitionTransformToPredicate(table,
+                        partitionColumnName, partitionValue));
+            } else {
+                partitionPredicate.add(StatisticUtils.quoting(partitionColumnName) + " = '" + partitionValue + "'");
+            }
+        }
+        return partitionPredicate;
     }
 
     // only iceberg table support partition transform
