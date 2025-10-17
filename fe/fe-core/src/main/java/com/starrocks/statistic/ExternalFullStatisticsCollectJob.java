@@ -25,6 +25,7 @@ import com.starrocks.common.Config;
 import com.starrocks.common.DdlException;
 import com.starrocks.common.util.DebugUtil;
 import com.starrocks.common.util.UUIDUtil;
+import com.starrocks.common.FeConstants;
 import com.starrocks.connector.PartitionUtil;
 import com.starrocks.connector.exception.StarRocksConnectorException;
 import com.starrocks.connector.hive.HiveMetaClient;
@@ -50,10 +51,15 @@ import com.starrocks.thrift.TStatisticData;
 import org.apache.commons.lang.StringEscapeUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.iceberg.PartitionField;
+import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.Schema;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.velocity.VelocityContext;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -233,6 +239,106 @@ public class ExternalFullStatisticsCollectJob extends StatisticsCollectJob {
             }
         }
         return partitionPredicate;
+    }
+
+    private List<String> generatePartitionPredicatesForIcebergTable(IcebergTable table, String partitionName, int specId) {
+        // Build partition predicates according to a specific Iceberg PartitionSpec (by specId).
+        PartitionSpec spec = table.getNativeTable().specs().get(specId);
+        if (spec == null) {
+            // Fallback to current spec when the provided specId is not found
+            spec = table.getNativeTable().spec();
+        }
+        Schema schema = table.getNativeTable().schema();
+
+        // Compute base column names (source names) for the spec fields, keeping the same order as in the spec
+        List<String> partitionColumnNames = spec.fields().stream()
+                .map(f -> schema.findColumnName(f.sourceId()))
+                .collect(Collectors.toList());
+
+        List<String> partitionValues = PartitionUtil.toPartitionValues(partitionName);
+        if (partitionValues.size() != partitionColumnNames.size()) {
+            throw new StarRocksConnectorException("Partition values size %s not match spec fields size %s in %s",
+                    partitionValues.size(), partitionColumnNames.size(), partitionName);
+        }
+
+        List<String> predicates = Lists.newArrayList();
+        for (int i = 0; i < spec.fields().size(); i++) {
+            PartitionField field = spec.fields().get(i);
+            String baseCol = partitionColumnNames.get(i);
+            String value = partitionValues.get(i);
+            String quotedCol = StatisticUtils.quoting(baseCol);
+
+            if (value.equals(IcebergApiConverter.PARTITION_NULL_VALUE)) {
+                predicates.add(quotedCol + " IS NULL");
+                continue;
+            }
+
+            IcebergPartitionTransform transform =
+                    IcebergPartitionTransform.fromString(field.transform().toString());
+            switch (transform) {
+                case IDENTITY: {
+                    predicates.add(String.format("%s = '%s'", quotedCol, value));
+                    break;
+                }
+                case YEAR:
+                case MONTH:
+                case DAY:
+                case HOUR: {
+                    // Build range predicate for time-based transforms
+                    Type srType = table.getColumn(baseCol).getType();
+                    String lower = IcebergPartitionUtils.normalizeTimePartitionName(value, field, schema, srType);
+                    DateTimeFormatter fmt = srType.isDate()
+                            ? DateTimeFormatter.ofPattern("yyyy-MM-dd")
+                            : DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                    LocalDateTime start;
+                    if (srType.isDate()) {
+                        start = LocalDate.parse(lower, fmt).atStartOfDay();
+                    } else {
+                        start = LocalDateTime.parse(lower, fmt);
+                    }
+                    LocalDateTime end = IcebergPartitionUtils.addDateTimeInterval(start, transform);
+                    String upper = end.format(fmt);
+                    predicates.add(String.format("%s >= '%s' and %s < '%s'", quotedCol, lower, quotedCol, upper));
+                    break;
+                }
+                case BUCKET: {
+                    int numBuckets = extractIcebergTransformParam(field.transform().toString());
+                    int bucketId;
+                    try {
+                        bucketId = Integer.parseInt(value);
+                    } catch (NumberFormatException e) {
+                        throw new StarRocksConnectorException("Invalid bucket partition value: %s", value);
+                    }
+                    String fn = FeConstants.ICEBERG_TRANSFORM_EXPRESSION_PREFIX + "bucket";
+                    predicates.add(String.format("%s(%s, %d) = %d", fn, quotedCol, numBuckets, bucketId));
+                    break;
+                }
+                case TRUNCATE: {
+                    int width = extractIcebergTransformParam(field.transform().toString());
+                    String fn = FeConstants.ICEBERG_TRANSFORM_EXPRESSION_PREFIX + "truncate";
+                    predicates.add(String.format("%s(%s, %d) = '%s'", fn, quotedCol, width, value));
+                    break;
+                }
+                default: {
+                    throw new StarRocksConnectorException("Partition transform %s not supported to analyze, table: %s",
+                            transform, table.getName());
+                }
+            }
+        }
+        return predicates;
+    }
+
+    private static int extractIcebergTransformParam(String transform) {
+        int l = transform.indexOf('[');
+        int r = transform.indexOf(']');
+        if (l >= 0 && r > l) {
+            try {
+                return Integer.parseInt(transform.substring(l + 1, r));
+            } catch (NumberFormatException ignore) {
+                // fall-through
+            }
+        }
+        throw new StarRocksConnectorException("Unsupported or missing transform parameter: %s", transform);
     }
 
     // only iceberg table support partition transform
