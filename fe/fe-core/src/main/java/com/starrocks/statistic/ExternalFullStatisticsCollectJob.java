@@ -172,8 +172,8 @@ public class ExternalFullStatisticsCollectJob extends StatisticsCollectJob {
 
         context.put("version", StatsConstants.STATISTIC_EXTERNAL_VERSION);
         // all table now, partition later
-        context.put("partitionNameStr", PartitionUtil.normalizePartitionName(partitionName,
-                table.getPartitionColumnNames(), nullValue));
+        context.put("partitionNameStr", table.isIcebergTable() ? partitionName :
+                PartitionUtil.normalizePartitionName(partitionName, table.getPartitionColumnNames(), nullValue));
         context.put("columnNameStr", columnNameStr);
         context.put("dataSize", fullAnalyzeGetDataSize(quoteColumnName, columnType));
         context.put("dbName", db.getOriginName());
