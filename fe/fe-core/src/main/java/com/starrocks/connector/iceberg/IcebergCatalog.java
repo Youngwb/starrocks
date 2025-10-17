@@ -351,7 +351,7 @@ public interface IcebergCatalog extends MemoryTrackable {
                             logger.error("The table [{}.{}] snapshot [{}] has been expired", nativeTable.name(), partitionName,
                                     snapshotId, e);
                         }
-                        Partition partition = new Partition(lastUpdated);
+                        Partition partition = new Partition(lastUpdated, specId);
                         partitionMap.put(partitionName, partition);
                     }
                 }

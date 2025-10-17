@@ -16,6 +16,7 @@
 package com.starrocks.statistic;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.starrocks.catalog.Database;
 import com.starrocks.catalog.IcebergTable;
@@ -26,13 +27,16 @@ import com.starrocks.common.DdlException;
 import com.starrocks.common.FeConstants;
 import com.starrocks.common.util.DebugUtil;
 import com.starrocks.common.util.UUIDUtil;
+import com.starrocks.connector.PartitionInfo;
 import com.starrocks.connector.PartitionUtil;
 import com.starrocks.connector.exception.StarRocksConnectorException;
 import com.starrocks.connector.hive.HiveMetaClient;
 import com.starrocks.connector.iceberg.IcebergApiConverter;
 import com.starrocks.connector.iceberg.IcebergPartitionTransform;
 import com.starrocks.connector.iceberg.IcebergPartitionUtils;
+import com.starrocks.connector.iceberg.Partition;
 import com.starrocks.connector.paimon.PaimonMetadata;
+import com.starrocks.connector.partitiontraits.IcebergPartitionTraits;
 import com.starrocks.qe.ConnectContext;
 import com.starrocks.qe.QueryState;
 import com.starrocks.qe.StmtExecutor;
@@ -223,15 +227,33 @@ public class ExternalFullStatisticsCollectJob extends StatisticsCollectJob {
     }
 
     private List<String> generatePartitionPredicatesForIcebergTable(IcebergTable table, String partitionName) {
-        List<String> partitionColumnNames = table.getPartitionColumnNames();
+        List<PartitionInfo> partitionInfos = IcebergPartitionTraits.build(table).
+                getPartitions(Lists.newArrayList(partitionName));
+        Preconditions.checkArgument(partitionInfos.size() == 1,
+                "Partition %s not found in table %s", partitionName, table.getName());
+        Partition partition = (Partition) partitionInfos.get(0);
+        PartitionSpec spec = table.getNativeTable().specs().get(partition.getSpecId());
+        if (spec == null) {
+            // Fallback to current spec when the provided specId is not found
+            spec = table.getNativeTable().spec();
+        }
+
+        Schema schema = spec.schema();
+        List<PartitionField> partitionFields = spec.fields();
         List<String> partitionValues = PartitionUtil.toPartitionValues(partitionName);
+        if (partitionValues.size() != partitionFields.size()) {
+            throw new StarRocksConnectorException("Partition values size %s not match spec fields size %s in %s",
+                    partitionValues.size(), partitionFields.size(), partitionName);
+        }
+
         List<String> partitionPredicate = Lists.newArrayList();
-        for (int i = 0; i < partitionColumnNames.size(); i++) {
-            String partitionColumnName = partitionColumnNames.get(i);
+        for (int i = 0; i < partitionFields.size(); i++) {
+            PartitionField field = partitionFields.get(i);
+            String partitionColumnName = schema.findColumnName(field.sourceId());
             String partitionValue = partitionValues.get(i);
             if (partitionValue.equals(IcebergApiConverter.PARTITION_NULL_VALUE)) {
                 partitionPredicate.add(StatisticUtils.quoting(partitionColumnName) + " IS NULL");
-            } else if (isSupportedPartitionTransform(partitionColumnName)) {
+            } else if (isSupportedPartitionTransform(field)) {
                 partitionPredicate.add(IcebergPartitionUtils.convertPartitionTransformToPredicate(table,
                         partitionColumnName, partitionValue));
             } else {
@@ -343,18 +365,10 @@ public class ExternalFullStatisticsCollectJob extends StatisticsCollectJob {
 
     // only iceberg table support partition transform
     // now only support identity/year/month/day/hour transform
-    boolean isSupportedPartitionTransform(String partitionColumn) {
+    boolean isSupportedPartitionTransform(PartitionField partitionField) {
         // only iceberg table support partition transform
         if (!table.isIcebergTable()) {
             return false;
-        }
-        IcebergTable icebergTable = (IcebergTable) table;
-
-        PartitionField partitionField = icebergTable.getPartitionField(partitionColumn);
-        if (partitionField == null) {
-            LOG.warn("Partition column {} not found in table {}", partitionColumn, table.getName());
-            throw new StarRocksConnectorException("Partition column " + partitionColumn + " not found in table " +
-                    table.getName());
         }
 
         IcebergPartitionTransform transform = IcebergPartitionTransform.fromString(partitionField.transform().toString());
