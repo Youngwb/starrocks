@@ -243,11 +243,6 @@ public class ExternalFullStatisticsCollectJob extends StatisticsCollectJob {
             return false;
         }
         IcebergTable icebergTable = (IcebergTable) table;
-        if (icebergTable.getNativeTable().specs().size() > 1) {
-            LOG.warn("Do not supported analyze iceberg table {} with partition evolution", table.getName());
-            throw new StarRocksConnectorException("Do not supported analyze iceberg table " + table.getName() +
-                    " with partition evolution");
-        }
 
         PartitionField partitionField = icebergTable.getPartitionField(partitionColumn);
         if (partitionField == null) {
