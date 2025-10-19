@@ -254,7 +254,7 @@ public class ExternalFullStatisticsCollectJob extends StatisticsCollectJob {
             if (partitionValue.equals(IcebergApiConverter.PARTITION_NULL_VALUE)) {
                 partitionPredicate.add(StatisticUtils.quoting(partitionColumnName) + " IS NULL");
             } else if (isSupportedPartitionTransform(field)) {
-                partitionPredicate.add(IcebergPartitionUtils.convertPartitionTransformToPredicate(table,
+                partitionPredicate.add(IcebergPartitionUtils.convertPartitionTransformToPredicate(table, field,
                         partitionColumnName, partitionValue));
             } else {
                 partitionPredicate.add(StatisticUtils.quoting(partitionColumnName) + " = '" + partitionValue + "'");
