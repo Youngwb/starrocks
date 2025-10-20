@@ -342,7 +342,7 @@ public interface IcebergCatalog extends MemoryTrackable {
                         PartitionSpec spec = nativeTable.specs().get(specId);
 
                         String partitionName =
-                                PartitionUtil.convertIcebergPartitionToPartitionName(spec, partitionData);
+                                PartitionUtil.convertIcebergPartitionToPartitionName(nativeTable, spec, partitionData);
 
                         long lastUpdated = -1;
                         try {

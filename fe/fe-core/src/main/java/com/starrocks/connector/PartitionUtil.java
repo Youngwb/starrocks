@@ -62,8 +62,10 @@ import org.apache.hadoop.hive.common.FileUtils;
 import org.apache.iceberg.PartitionData;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.Partitioning;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.types.Types;
+import org.apache.iceberg.util.StructProjection;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -772,6 +774,34 @@ public class PartitionUtil {
         }
         partitionKeyList.add(partitionItem);
         return partitionKeyList;
+    }
+
+    public static String convertIcebergPartitionToPartitionName(org.apache.iceberg.Table table, PartitionSpec spec,
+                                                                StructProjection partition) {
+        StringBuilder sb = new StringBuilder();
+        // partition have all active partition types, so we need to get full partition type from table
+        Types.StructType partitionType = Partitioning.partitionType(table);
+
+        for (int i = 0; i < partitionType.fields().size(); i++) {
+            Types.NestedField field = partitionType.fields().get(i);
+            for (PartitionField partitionField : spec.fields()) {
+                if (partitionField.fieldId() == field.fieldId()) {
+                    org.apache.iceberg.types.Type type = spec.partitionType().fieldType(partitionField.name());
+                    sb.append(partitionField.name());
+                    sb.append("=");
+                    String value = partitionField.transform().toHumanString(type,
+                            getPartitionValue(partition, i, spec.javaClasses()[i]));
+                    sb.append(value);
+                    sb.append("/");
+                    return sb.toString();
+
+                }
+            }
+        }
+        if (!sb.isEmpty()) {
+            return sb.substring(0, sb.length() - 1);
+        }
+        return ICEBERG_DEFAULT_PARTITION;
     }
 
     // return partition name in forms of `col1=value1/col2=value2`
