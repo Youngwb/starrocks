@@ -786,6 +786,10 @@ public class PartitionUtil {
             Types.NestedField field = partitionType.fields().get(i);
             for (PartitionField partitionField : spec.fields()) {
                 if (partitionField.fieldId() == field.fieldId()) {
+                    // skip inactive partition field
+                    if (partitionField.transform().isVoid()) {
+                        continue;
+                    }
                     org.apache.iceberg.types.Type type = spec.partitionType().fieldType(partitionField.name());
                     sb.append(partitionField.name());
                     sb.append("=");
