@@ -790,11 +790,9 @@ public class PartitionUtil {
                     sb.append(partitionField.name());
                     sb.append("=");
                     String value = partitionField.transform().toHumanString(type,
-                            getPartitionValue(partition, i, spec.javaClasses()[i]));
+                            getPartitionValue(partition, i, type.typeId().javaClass()));
                     sb.append(value);
                     sb.append("/");
-                    return sb.toString();
-
                 }
             }
         }
