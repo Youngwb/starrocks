@@ -177,7 +177,7 @@ public class PruneHDFSScanColumnRule extends TransformationRule {
     }
 
     private boolean notSupportedPartitionColumnType(Type type) {
-        return type.isFloat() || type.isDouble() || type.isDecimalOfAnyVersion();
+        return type.isFloat() || type.isDouble();
     }
 
     private boolean icebergNotSupportedPartitionColumnType(Type type) {
