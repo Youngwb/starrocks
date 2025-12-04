@@ -33,7 +33,6 @@ import com.starrocks.type.StringType;
 import org.apache.iceberg.Table;
 
 import static com.starrocks.sql.ast.OutFileClause.PARQUET_COMPRESSION_TYPE_MAP;
-import static org.aspectj.lang.reflect.DeclareAnnotation.Kind.Type;
 
 /**
  * IcebergMergeSink is used to write merge-on-read operations (MERGE, UPDATE, DELETE) to Iceberg tables.

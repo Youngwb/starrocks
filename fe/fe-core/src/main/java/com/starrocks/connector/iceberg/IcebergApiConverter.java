@@ -317,6 +317,7 @@ public class IcebergApiConverter {
     public static List<Column> toFullSchemas(Schema schema, Table table) {
         List<Column> fullSchema = toFullSchemas(schema);
         if (table instanceof BaseTable) {
+            addMetaColumns(fullSchema);
             if (((BaseTable) table).operations().current().formatVersion() >= 3) {
                 boolean hasRowId = fullSchema.stream().anyMatch(column -> column.getName().equals(IcebergTable.ROW_ID));
                 if (!hasRowId) {
