@@ -110,11 +110,11 @@ public class IcebergMergeSink extends DataSink {
                 if (IcebergTable.FILE_PATH.equals(colName)) {
                     hasFilePathColumn = true;
                     Preconditions.checkState(slot.getType().equals(StringType.STRING),
-                            "$file_path__ column must be of type STRING");
+                            "$file_path column must be of type STRING");
                 } else if (IcebergTable.ROW_POSITION.equals(colName)) {
                     hasPosColumn = true;
                     Preconditions.checkState(slot.getType().equals(IntegerType.BIGINT),
-                            "$pos__ column must be of type BIGINT");
+                            "$pos column must be of type BIGINT");
                 }
             }
         }

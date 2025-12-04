@@ -202,13 +202,13 @@ public class DeletePlanner {
             filePathSlot.setIsMaterialized(true);
             filePathSlot.setType(StringType.STRING);
             filePathSlot.setColumn(new Column(IcebergTable.FILE_PATH, StringType.STRING));
-            filePathSlot.setIsNullable(false);
+            filePathSlot.setIsNullable(true);
 
             SlotDescriptor posSlot = descriptorTable.addSlotDescriptor(mergeTuple);
             posSlot.setIsMaterialized(true);
             posSlot.setType(IntegerType.BIGINT);
-            posSlot.setColumn(new Column(IcebergTable.FILE_PATH, IntegerType.BIGINT));
-            posSlot.setIsNullable(false);
+            posSlot.setColumn(new Column(IcebergTable.ROW_POSITION, IntegerType.BIGINT));
+            posSlot.setIsNullable(true);
 
             mergeTuple.computeMemLayout();
 
