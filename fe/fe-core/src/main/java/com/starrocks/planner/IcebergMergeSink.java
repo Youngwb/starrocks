@@ -107,20 +107,20 @@ public class IcebergMergeSink extends DataSink {
         for (SlotDescriptor slot : desc.getSlots()) {
             if (slot.getColumn() != null) {
                 String colName = slot.getColumn().getName();
-                if ("__file_path__".equals(colName)) {
+                if (IcebergTable.FILE_PATH.equals(colName)) {
                     hasFilePathColumn = true;
                     Preconditions.checkState(slot.getType().equals(StringType.STRING),
-                            "__file_path__ column must be of type STRING");
-                } else if ("__pos__".equals(colName)) {
+                            "$file_path__ column must be of type STRING");
+                } else if (IcebergTable.ROW_POSITION.equals(colName)) {
                     hasPosColumn = true;
                     Preconditions.checkState(slot.getType().equals(IntegerType.BIGINT),
-                            "__pos__ column must be of type BIGINT");
+                            "$pos__ column must be of type BIGINT");
                 }
             }
         }
 
         Preconditions.checkState(hasFilePathColumn && hasPosColumn,
-                "IcebergMergeSink requires __file_path__ and __pos__ columns in tuple descriptor");
+                "IcebergMergeSink requires $file_path and $pos columns in tuple descriptor");
     }
 
 
