@@ -38,11 +38,19 @@ import static com.starrocks.sql.ast.OutFileClause.PARQUET_COMPRESSION_TYPE_MAP;
  * IcebergMergeSink is used to write merge-on-read operations (MERGE, UPDATE, DELETE) to Iceberg tables.
  * It supports position deletes and equality deletes for MERGE operations.
  *
- * For DELETE operations: receives __file_path__ and __pos__ columns
- * For MERGE/UPDATE operations: receives __file_path__, __pos__, and operation columns
+ * Required columns:
+ * - $file_path (STRING): Path of the data file
+ * - $pos (BIGINT): Row position within the file
+ *
+ * Optional column (for future MERGE/UPDATE support):
+ * - $op (TINYINT): Operation type (0=INSERT, 1=DELETE, 2=UPDATE)
+ *                   For backward compatibility, this is optional for DELETE-only operations.
  */
 public class IcebergMergeSink extends DataSink {
     public final static int ICEBERG_MERGE_SINK_MAX_DOP = 32;
+
+    public static final String OPERATION = "$op";  // 0=INSERT, 1=DELETE, 2=UPDATE
+
     protected final TupleDescriptor desc;
     private final long targetTableId;
     private final String tableLocation;
@@ -103,6 +111,7 @@ public class IcebergMergeSink extends DataSink {
     private void validateMergeTuple(TupleDescriptor desc) {
         boolean hasFilePathColumn = false;
         boolean hasPosColumn = false;
+        boolean hasOpColumn = false;
 
         for (SlotDescriptor slot : desc.getSlots()) {
             if (slot.getColumn() != null) {
@@ -114,13 +123,23 @@ public class IcebergMergeSink extends DataSink {
                 } else if (IcebergTable.ROW_POSITION.equals(colName)) {
                     hasPosColumn = true;
                     Preconditions.checkState(slot.getType().equals(IntegerType.BIGINT),
-                            "$pos column must be of type BIGINT");
+                            "$row_pos column must be of type BIGINT");
+                } else if (OPERATION.equals(colName)) {
+                    hasOpColumn = true;
+                    Preconditions.checkState(slot.getType().equals(IntegerType.TINYINT),
+                            "$op column must be of type TINYINT");
                 }
             }
         }
 
+        // Require file_path and pos
         Preconditions.checkState(hasFilePathColumn && hasPosColumn,
-                "IcebergMergeSink requires $file_path and $pos columns in tuple descriptor");
+                "IcebergMergeSink requires $file_path and $row_pos columns in tuple descriptor");
+
+        // For future MERGE support, also require $op column
+        // TODO: Uncomment this check when all DELETE operations include $op column
+        Preconditions.checkState(hasOpColumn,
+                "IcebergMergeSink requires $op column in tuple descriptor for MERGE support");
     }
 
 

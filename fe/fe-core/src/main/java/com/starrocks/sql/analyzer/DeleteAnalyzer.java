@@ -27,6 +27,7 @@ import com.starrocks.catalog.TableName;
 import com.starrocks.common.Config;
 import com.starrocks.common.FeConstants;
 import com.starrocks.load.Load;
+import com.starrocks.planner.IcebergMergeSink;
 import com.starrocks.qe.ConnectContext;
 import com.starrocks.server.GlobalStateMgr;
 import com.starrocks.sql.ast.DeleteStmt;
@@ -220,7 +221,7 @@ public class DeleteAnalyzer {
             throw new SemanticException("Delete for Iceberg table do not support `with` clause");
         }
 
-        // Create select list: SELECT $file_path, $row_pos
+        // Create select list: SELECT $file_path, $row_pos, $op
         SelectList selectList = new SelectList();
         // Add $file_path column
         SlotRef filePathColumn = new SlotRef(deleteStatement.getTableName(), IcebergTable.FILE_PATH);
@@ -229,6 +230,10 @@ public class DeleteAnalyzer {
         // Add $row_pos column
         SlotRef posColumn = new SlotRef(deleteStatement.getTableName(), IcebergTable.ROW_POSITION);
         selectList.addItem(new SelectListItem(posColumn, IcebergTable.ROW_POSITION));
+
+        // Add $op column (constant 1 for DELETE)
+        IntLiteral opValue = new IntLiteral(1, IntegerType.TINYINT);
+        selectList.addItem(new SelectListItem(opValue, IcebergMergeSink.OPERATION));
 
         // Create table relation with WHERE predicate
         TableRelation tableRelation = new TableRelation(deleteStatement.getTableName());

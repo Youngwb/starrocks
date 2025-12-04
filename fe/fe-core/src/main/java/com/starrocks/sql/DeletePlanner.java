@@ -164,8 +164,11 @@ public class DeletePlanner {
     /**
      * Plan Iceberg delete operation.
      * For Iceberg DELETE, we will:
-     * 1. Generate SELECT $file_path, $row_pos FROM table WHERE condition
+     * 1. Generate SELECT $file_path, $row_pos, $op FROM table WHERE condition
      * 2. Write results to Parquet delete file using IcebergMergeSink
+     *
+     * The $op column is added to support future MERGE/UPDATE operations.
+     * For DELETE operations, $op is always set to 1 (DELETE).
      */
     private ExecPlan planIcebergDelete(DeleteStmt deleteStatement, ConnectContext session) {
         QueryRelation query = deleteStatement.getQueryStatement().getQueryRelation();
@@ -196,19 +199,26 @@ public class DeletePlanner {
             DescriptorTable descriptorTable = execPlan.getDescTbl();
             TupleDescriptor mergeTuple = descriptorTable.createTupleDescriptor();
 
-            // The query should already have __file_path__ and __pos__ columns
-            // from DeleteAnalyzer.analyzeIcebergTable
+            // Add $file_path column
             SlotDescriptor filePathSlot = descriptorTable.addSlotDescriptor(mergeTuple);
             filePathSlot.setIsMaterialized(true);
             filePathSlot.setType(StringType.STRING);
             filePathSlot.setColumn(new Column(IcebergTable.FILE_PATH, StringType.STRING));
-            filePathSlot.setIsNullable(true);
+            filePathSlot.setIsNullable(false);
 
+            // Add $row_pos column
             SlotDescriptor posSlot = descriptorTable.addSlotDescriptor(mergeTuple);
             posSlot.setIsMaterialized(true);
             posSlot.setType(IntegerType.BIGINT);
             posSlot.setColumn(new Column(IcebergTable.ROW_POSITION, IntegerType.BIGINT));
-            posSlot.setIsNullable(true);
+            posSlot.setIsNullable(false);
+
+            // Add $op column (for future MERGE/UPDATE support)
+            SlotDescriptor opSlot = descriptorTable.addSlotDescriptor(mergeTuple);
+            opSlot.setIsMaterialized(true);
+            opSlot.setType(IntegerType.TINYINT);
+            opSlot.setColumn(new Column(IcebergMergeSink.OPERATION, IntegerType.TINYINT));
+            opSlot.setIsNullable(false);
 
             mergeTuple.computeMemLayout();
 
