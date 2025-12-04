@@ -58,7 +58,8 @@ enum TDataSinkType {
     BLACKHOLE_TABLE_SINK,
     DICTIONARY_CACHE_SINK,
     MULTI_OLAP_TABLE_SINK,
-    SPLIT_DATA_STREAM_SINK
+    SPLIT_DATA_STREAM_SINK,
+    ICEBERG_MERGE_SINK
 }
 
 enum TResultSinkType {
@@ -296,4 +297,5 @@ struct TDataSink {
   15: optional list<TDataSink> multi_olap_table_sinks
   16: optional i64 sink_id
   17: optional TSplitDataStreamSink split_stream_sink
+  18: optional TIcebergTableSink iceberg_merge_sink
 }

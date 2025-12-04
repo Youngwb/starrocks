@@ -17,6 +17,7 @@ package com.starrocks.sql;
 import com.google.common.collect.Lists;
 import com.starrocks.catalog.Column;
 import com.starrocks.catalog.Database;
+import com.starrocks.catalog.IcebergTable;
 import com.starrocks.catalog.OlapTable;
 import com.starrocks.catalog.Partition;
 import com.starrocks.catalog.TableName;
@@ -25,6 +26,7 @@ import com.starrocks.common.StarRocksException;
 import com.starrocks.load.Load;
 import com.starrocks.planner.DataSink;
 import com.starrocks.planner.DescriptorTable;
+import com.starrocks.planner.IcebergMergeSink;
 import com.starrocks.planner.OlapTableSink;
 import com.starrocks.planner.PlanFragment;
 import com.starrocks.planner.SlotDescriptor;
@@ -46,6 +48,7 @@ import com.starrocks.sql.plan.ExecPlan;
 import com.starrocks.sql.plan.PlanFragmentBuilder;
 import com.starrocks.thrift.TResultSinkType;
 import com.starrocks.type.IntegerType;
+import com.starrocks.type.StringType;
 
 import java.util.List;
 
@@ -56,6 +59,12 @@ public class DeletePlanner {
             // so just return empty plan here
             return null;
         }
+
+        // Handle Iceberg delete operation
+        if (deleteStatement.isIcebergDelete()) {
+            return planIcebergDelete(deleteStatement, session);
+        }
+
         QueryRelation query = deleteStatement.getQueryStatement().getQueryRelation();
         List<String> colNames = query.getColumnOutputNames();
         ColumnRefFactory columnRefFactory = new ColumnRefFactory();
@@ -137,6 +146,87 @@ public class DeletePlanner {
                     sinkFragment.setPipelineDop(ConnectContext.get().getSessionVariable().getParallelExecInstanceNum());
                 }
                 sinkFragment.setHasOlapTableSink();
+                sinkFragment.setForceSetTableSinkDop();
+                sinkFragment.setForceAssignScanRangesPerDriverSeq();
+                sinkFragment.disableRuntimeAdaptiveDop();
+            } else {
+                execPlan.getFragments().get(0).setPipelineDop(1);
+            }
+            return execPlan;
+        } finally {
+            session.getSessionVariable().setEnableLocalShuffleAgg(prevIsEnableLocalShuffleAgg);
+            if (forceDisablePipeline) {
+                session.getSessionVariable().setEnablePipelineEngine(true);
+            }
+        }
+    }
+
+    /**
+     * Plan Iceberg delete operation.
+     * For Iceberg DELETE, we will:
+     * 1. Generate SELECT __file_path__, __pos__ FROM table WHERE condition
+     * 2. Write results to Parquet delete file using IcebergMergeSink
+     */
+    private ExecPlan planIcebergDelete(DeleteStmt deleteStatement, ConnectContext session) {
+        QueryRelation query = deleteStatement.getQueryStatement().getQueryRelation();
+        List<String> colNames = query.getColumnOutputNames();
+        ColumnRefFactory columnRefFactory = new ColumnRefFactory();
+        LogicalPlan logicalPlan = new RelationTransformer(columnRefFactory, session).transform(query);
+
+        boolean isEnablePipeline = session.getSessionVariable().isEnablePipelineEngine();
+        boolean canUsePipeline = isEnablePipeline && DataSink.canTableSinkUsePipeline(deleteStatement.getTable());
+        boolean forceDisablePipeline = isEnablePipeline && !canUsePipeline;
+        boolean prevIsEnableLocalShuffleAgg = session.getSessionVariable().isEnableLocalShuffleAgg();
+        try {
+            if (forceDisablePipeline) {
+                session.getSessionVariable().setEnablePipelineEngine(false);
+            }
+            session.getSessionVariable().setEnableLocalShuffleAgg(false);
+
+            Optimizer optimizer = OptimizerFactory.create(OptimizerFactory.initContext(session, columnRefFactory));
+            OptExpression optimizedPlan = optimizer.optimize(
+                    logicalPlan.getRoot(),
+                    new PhysicalPropertySet(),
+                    new ColumnRefSet(logicalPlan.getOutputColumn()));
+            ExecPlan execPlan = PlanFragmentBuilder.createPhysicalPlan(optimizedPlan, session,
+                    logicalPlan.getOutputColumn(), columnRefFactory,
+                    colNames, TResultSinkType.MYSQL_PROTOCAL, false);
+
+            // Create IcebergMergeSink for delete operation
+            DescriptorTable descriptorTable = execPlan.getDescTbl();
+            TupleDescriptor mergeTuple = descriptorTable.createTupleDescriptor();
+
+            // The query should already have __file_path__ and __pos__ columns
+            // from DeleteAnalyzer.analyzeIcebergTable
+            SlotDescriptor filePathSlot = descriptorTable.addSlotDescriptor(mergeTuple);
+            filePathSlot.setIsMaterialized(true);
+            filePathSlot.setType(StringType.STRING);
+            filePathSlot.setColumn(new Column("__file_path__", StringType.STRING));
+            filePathSlot.setIsNullable(false);
+
+            SlotDescriptor posSlot = descriptorTable.addSlotDescriptor(mergeTuple);
+            posSlot.setIsMaterialized(true);
+            posSlot.setType(IntegerType.BIGINT);
+            posSlot.setColumn(new Column("__pos__", IntegerType.BIGINT));
+            posSlot.setIsNullable(false);
+
+            mergeTuple.computeMemLayout();
+
+            // Initialize IcebergMergeSink
+            DataSink dataSink = new IcebergMergeSink(
+                    (IcebergTable) deleteStatement.getTable(),
+                    mergeTuple,
+                    session.getSessionVariable()
+            );
+            execPlan.getFragments().get(0).setSink(dataSink);
+
+            if (canUsePipeline) {
+                PlanFragment sinkFragment = execPlan.getFragments().get(0);
+                if (ConnectContext.get().getSessionVariable().getEnableAdaptiveSinkDop()) {
+                    sinkFragment.setPipelineDop(ConnectContext.get().getSessionVariable().getSinkDegreeOfParallelism());
+                } else {
+                    sinkFragment.setPipelineDop(ConnectContext.get().getSessionVariable().getParallelExecInstanceNum());
+                }
                 sinkFragment.setForceSetTableSinkDop();
                 sinkFragment.setForceAssignScanRangesPerDriverSeq();
                 sinkFragment.disableRuntimeAdaptiveDop();

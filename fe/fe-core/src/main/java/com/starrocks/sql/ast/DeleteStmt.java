@@ -53,6 +53,7 @@ public class DeleteStmt extends DmlStmt {
     // fields for new planer, primary key table
     private Table table;
     private QueryStatement queryStatement;
+    private boolean isIcebergDelete = false;
 
     // fields for old planer, non-primary key table
     private List<Predicate> deleteConditions;
@@ -140,6 +141,14 @@ public class DeleteStmt extends DmlStmt {
 
     public QueryStatement getQueryStatement() {
         return queryStatement;
+    }
+
+    public boolean isIcebergDelete() {
+        return table.isIcebergTable();
+    }
+
+    public void setIsIcebergDelete(boolean isIcebergDelete) {
+        this.isIcebergDelete = isIcebergDelete;
     }
 
     public <R, C> R accept(AstVisitor<R, C> visitor, C context) {
