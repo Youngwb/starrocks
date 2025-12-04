@@ -164,7 +164,7 @@ public class DeletePlanner {
     /**
      * Plan Iceberg delete operation.
      * For Iceberg DELETE, we will:
-     * 1. Generate SELECT __file_path__, __pos__ FROM table WHERE condition
+     * 1. Generate SELECT $file_path, $row_pos FROM table WHERE condition
      * 2. Write results to Parquet delete file using IcebergMergeSink
      */
     private ExecPlan planIcebergDelete(DeleteStmt deleteStatement, ConnectContext session) {
@@ -201,13 +201,13 @@ public class DeletePlanner {
             SlotDescriptor filePathSlot = descriptorTable.addSlotDescriptor(mergeTuple);
             filePathSlot.setIsMaterialized(true);
             filePathSlot.setType(StringType.STRING);
-            filePathSlot.setColumn(new Column("__file_path__", StringType.STRING));
+            filePathSlot.setColumn(new Column(IcebergTable.FILE_PATH, StringType.STRING));
             filePathSlot.setIsNullable(false);
 
             SlotDescriptor posSlot = descriptorTable.addSlotDescriptor(mergeTuple);
             posSlot.setIsMaterialized(true);
             posSlot.setType(IntegerType.BIGINT);
-            posSlot.setColumn(new Column("__pos__", IntegerType.BIGINT));
+            posSlot.setColumn(new Column(IcebergTable.FILE_PATH, IntegerType.BIGINT));
             posSlot.setIsNullable(false);
 
             mergeTuple.computeMemLayout();

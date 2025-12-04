@@ -102,6 +102,8 @@ public class IcebergTable extends Table {
     public static final String SPEC_ID = "$spec_id";
     public static final String EQUALITY_DELETE_TABLE_COMMENT = "equality_delete_table_comment";
     public static final String ROW_ID = "_row_id";
+    public static final String FILE_PATH = "$file_path";
+    public static final String ROW_POSITION = "$row_pos";
 
     private String catalogName;
     @SerializedName(value = "dn")

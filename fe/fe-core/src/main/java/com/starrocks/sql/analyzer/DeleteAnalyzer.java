@@ -220,15 +220,15 @@ public class DeleteAnalyzer {
             throw new SemanticException("Delete for Iceberg table do not support `with` clause");
         }
 
-        // Create select list: SELECT __file_path__, __pos__
+        // Create select list: SELECT $file_path, $row_pos
         SelectList selectList = new SelectList();
-        // Add __file_path__ column
-        SlotRef filePathColumn = new SlotRef(deleteStatement.getTableName(), "__file_path__");
-        selectList.addItem(new SelectListItem(filePathColumn, "__file_path__"));
+        // Add $file_path column
+        SlotRef filePathColumn = new SlotRef(deleteStatement.getTableName(), IcebergTable.FILE_PATH);
+        selectList.addItem(new SelectListItem(filePathColumn, IcebergTable.FILE_PATH));
 
-        // Add __pos__ column
-        SlotRef posColumn = new SlotRef(deleteStatement.getTableName(), "__pos__");
-        selectList.addItem(new SelectListItem(posColumn, "__pos__"));
+        // Add $row_pos column
+        SlotRef posColumn = new SlotRef(deleteStatement.getTableName(), IcebergTable.ROW_POSITION);
+        selectList.addItem(new SelectListItem(posColumn, IcebergTable.ROW_POSITION));
 
         // Create table relation with WHERE predicate
         TableRelation tableRelation = new TableRelation(deleteStatement.getTableName());

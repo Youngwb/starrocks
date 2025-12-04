@@ -44,6 +44,7 @@ import com.starrocks.type.IntegerType;
 import com.starrocks.type.MapType;
 import com.starrocks.type.PrimitiveType;
 import com.starrocks.type.ScalarType;
+import com.starrocks.type.StringType;
 import com.starrocks.type.StructField;
 import com.starrocks.type.StructType;
 import com.starrocks.type.Type;
@@ -301,6 +302,16 @@ public class IcebergApiConverter {
         }
 
         throw new StarRocksConnectorException("Unsupported complex column type %s", type);
+    }
+
+    private static void addMetaColumns(List<Column> fullSchema) {
+        Column column = new Column(IcebergTable.FILE_PATH, StringType.STRING, true);
+        column.setIsHidden(true);
+        fullSchema.add(column);
+
+        column = new Column(IcebergTable.ROW_POSITION, IntegerType.BIGINT, true);
+        column.setIsHidden(true);
+        fullSchema.add(column);
     }
 
     public static List<Column> toFullSchemas(Schema schema, Table table) {
