@@ -55,7 +55,6 @@ import com.starrocks.type.IntegerType;
 import com.starrocks.type.StringType;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class DeletePlanner {
     public ExecPlan plan(DeleteStmt deleteStatement, ConnectContext session) {
@@ -194,15 +193,8 @@ public class DeletePlanner {
             List<ColumnRefOperator> outputColumns = logicalPlan.getOutputColumn();
             IcebergTable icebergTable = (IcebergTable) deleteStatement.getTable();
 
-            PhysicalPropertySet requiredProperty = new PhysicalPropertySet();
-            if (icebergTable.isPartitioned()) {
-                List<Integer> partitionColumnIDs = icebergTable.partitionColumnIndexes().stream()
-                        .map(x -> outputColumns.get(x).getId()).collect(Collectors.toList());
-                HashDistributionDesc desc = new HashDistributionDesc(partitionColumnIDs,
-                        HashDistributionDesc.SourceType.SHUFFLE_AGG);
-                requiredProperty = new PhysicalPropertySet(DistributionProperty
-                        .createProperty(DistributionSpec.createHashDistributionSpec(desc)));
-            }
+            // Create shuffle property based on session variables and table partitioning
+            PhysicalPropertySet requiredProperty = createShuffleProperty(icebergTable, outputColumns, session);
 
             Optimizer optimizer = OptimizerFactory.create(OptimizerFactory.initContext(session, columnRefFactory));
             OptExpression optimizedPlan = optimizer.optimize(
@@ -268,5 +260,54 @@ public class DeletePlanner {
                 session.getSessionVariable().setEnablePipelineEngine(true);
             }
         }
+    }
+
+    /**
+     * Create shuffle property for Iceberg DELETE operation.
+     * Determines whether to shuffle data by partition columns based on:
+     * 1. Whether the table is partitioned
+     * 2. Session variable enable_iceberg_delete_shuffle
+     * 3. Estimated data size (TODO: implement estimation)
+     *
+     * @param icebergTable The Iceberg table
+     * @param outputColumns Output columns from the logical plan (includes virtual columns + partition columns)
+     * @param session Connect context with session variables
+     * @return PhysicalPropertySet with shuffle requirement or empty property
+     */
+    private PhysicalPropertySet createShuffleProperty(IcebergTable icebergTable,
+                                                       List<ColumnRefOperator> outputColumns,
+                                                       ConnectContext session) {
+        // Check if table is partitioned
+        if (!icebergTable.isPartitioned()) {
+            return new PhysicalPropertySet(); // No shuffle for non-partitioned tables
+        }
+
+        List<String> partitionColNames = icebergTable.getPartitionColumnNames();
+        List<Integer> partitionColumnIDs = Lists.newArrayList();
+        for (String partCol : partitionColNames) {
+            boolean found = false;
+            for (ColumnRefOperator outputCol : outputColumns) {
+                if (outputCol.getName().equalsIgnoreCase(partCol)) {
+                    found = true;
+                    partitionColumnIDs.add(outputCol.getId());
+                    break;
+                }
+            }
+            if (!found) {
+                // Partition column not in output, cannot shuffle
+                return new PhysicalPropertySet();
+            }
+        }
+
+        // Create HASH distribution spec
+        HashDistributionDesc distributionDesc = new HashDistributionDesc(
+                partitionColumnIDs,
+                HashDistributionDesc.SourceType.SHUFFLE_AGG
+        );
+
+        DistributionProperty distributionProperty =  DistributionProperty.createProperty(
+                DistributionSpec.createHashDistributionSpec(distributionDesc));
+
+        return new PhysicalPropertySet(distributionProperty);
     }
 }

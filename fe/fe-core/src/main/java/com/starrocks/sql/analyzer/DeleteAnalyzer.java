@@ -221,7 +221,7 @@ public class DeleteAnalyzer {
             throw new SemanticException("Delete for Iceberg table do not support `with` clause");
         }
 
-        // Create select list: SELECT $file_path, $row_pos, $op
+        // Create select list: SELECT $file_path, $row_pos, $op, partition_col1, partition_col2, ...
         SelectList selectList = new SelectList();
         // Add $file_path column
         SlotRef filePathColumn = new SlotRef(deleteStatement.getTableName(), IcebergTable.FILE_PATH);
@@ -230,6 +230,13 @@ public class DeleteAnalyzer {
         // Add $row_pos column
         SlotRef posColumn = new SlotRef(deleteStatement.getTableName(), IcebergTable.ROW_POSITION);
         selectList.addItem(new SelectListItem(posColumn, IcebergTable.ROW_POSITION));
+
+        // Add partition columns for shuffle
+        List<Column> partitionColumns = table.getPartitionColumns();
+        for (Column partitionCol : partitionColumns) {
+            SlotRef partitionColumnRef = new SlotRef(deleteStatement.getTableName(), partitionCol.getName());
+            selectList.addItem(new SelectListItem(partitionColumnRef, partitionCol.getName()));
+        }
 
         // Add $op column (constant 1 for DELETE)
         IntLiteral opValue = new IntLiteral(1, IntegerType.TINYINT);
