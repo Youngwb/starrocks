@@ -41,7 +41,11 @@ import com.starrocks.sql.optimizer.Optimizer;
 import com.starrocks.sql.optimizer.OptimizerFactory;
 import com.starrocks.sql.optimizer.base.ColumnRefFactory;
 import com.starrocks.sql.optimizer.base.ColumnRefSet;
+import com.starrocks.sql.optimizer.base.DistributionProperty;
+import com.starrocks.sql.optimizer.base.DistributionSpec;
+import com.starrocks.sql.optimizer.base.HashDistributionDesc;
 import com.starrocks.sql.optimizer.base.PhysicalPropertySet;
+import com.starrocks.sql.optimizer.operator.scalar.ColumnRefOperator;
 import com.starrocks.sql.optimizer.transformer.LogicalPlan;
 import com.starrocks.sql.optimizer.transformer.RelationTransformer;
 import com.starrocks.sql.plan.ExecPlan;
@@ -51,6 +55,7 @@ import com.starrocks.type.IntegerType;
 import com.starrocks.type.StringType;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class DeletePlanner {
     public ExecPlan plan(DeleteStmt deleteStatement, ConnectContext session) {
@@ -186,10 +191,23 @@ public class DeletePlanner {
             }
             session.getSessionVariable().setEnableLocalShuffleAgg(false);
 
+            List<ColumnRefOperator> outputColumns = logicalPlan.getOutputColumn();
+            IcebergTable icebergTable = (IcebergTable) deleteStatement.getTable();
+
+            PhysicalPropertySet requiredProperty = new PhysicalPropertySet();
+            if (icebergTable.isPartitioned()) {
+                List<Integer> partitionColumnIDs = icebergTable.partitionColumnIndexes().stream()
+                        .map(x -> outputColumns.get(x).getId()).collect(Collectors.toList());
+                HashDistributionDesc desc = new HashDistributionDesc(partitionColumnIDs,
+                        HashDistributionDesc.SourceType.SHUFFLE_AGG);
+                requiredProperty = new PhysicalPropertySet(DistributionProperty
+                        .createProperty(DistributionSpec.createHashDistributionSpec(desc)));
+            }
+
             Optimizer optimizer = OptimizerFactory.create(OptimizerFactory.initContext(session, columnRefFactory));
             OptExpression optimizedPlan = optimizer.optimize(
                     logicalPlan.getRoot(),
-                    new PhysicalPropertySet(),
+                    requiredProperty,
                     new ColumnRefSet(logicalPlan.getOutputColumn()));
             ExecPlan execPlan = PlanFragmentBuilder.createPhysicalPlan(optimizedPlan, session,
                     logicalPlan.getOutputColumn(), columnRefFactory,
