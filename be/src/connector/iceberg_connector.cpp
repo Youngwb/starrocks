@@ -15,11 +15,16 @@
 #include "iceberg_connector.h"
 
 #include "iceberg_chunk_sink.h"
+#include "iceberg_merge_sink.h"
 
 namespace starrocks::connector {
 
 std::unique_ptr<ConnectorChunkSinkProvider> IcebergConnector::create_data_sink_provider() const {
     return std::make_unique<IcebergChunkSinkProvider>();
+}
+
+std::unique_ptr<ConnectorChunkSinkProvider> IcebergConnector::create_merge_sink_provider() const {
+    return std::make_unique<IcebergMergeSinkProvider>();
 }
 
 } // namespace starrocks::connector

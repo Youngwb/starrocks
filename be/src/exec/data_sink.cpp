@@ -208,9 +208,20 @@ Status DataSink::create_data_sink(RuntimeState* state, const TDataSink& thrift_s
         *sink = std::make_unique<IcebergTableSink>(state->obj_pool(), output_exprs);
         break;
     }
+    case TDataSinkType::ICEBERG_MERGE_SINK: {
+        if (!thrift_sink.__isset.iceberg_merge_sink) {
+            return Status::InternalError("Missing iceberg merge sink");
+        }
+        // IcebergMergeSink also uses IcebergTableSink for pipeline decomposition
+        *sink = std::make_unique<IcebergTableSink>(state->obj_pool(), output_exprs);
+        break;
+    }
 #else
     case TDataSinkType::ICEBERG_TABLE_SINK: {
         return Status::NotSupported("Iceberg table sink is disabled on macOS");
+    }
+    case TDataSinkType::ICEBERG_MERGE_SINK: {
+        return Status::NotSupported("Iceberg merge sink is disabled on macOS");
     }
 #endif
     case TDataSinkType::HIVE_TABLE_SINK: {

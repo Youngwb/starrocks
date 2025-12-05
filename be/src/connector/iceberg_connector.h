@@ -28,6 +28,9 @@ public:
     ConnectorType connector_type() const override { return ConnectorType::ICEBERG; }
 
     std::unique_ptr<ConnectorChunkSinkProvider> create_data_sink_provider() const override;
+
+    // Create merge sink provider for writing delete files
+    std::unique_ptr<ConnectorChunkSinkProvider> create_merge_sink_provider() const;
 };
 
 } // namespace starrocks::connector

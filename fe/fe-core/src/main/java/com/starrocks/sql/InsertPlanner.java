@@ -292,6 +292,13 @@ public class InsertPlanner {
             outputFullSchema = targetTable.getFullSchema();
         }
 
+        if (targetTable.isIcebergTable()) {
+            outputBaseSchema = outputBaseSchema.stream().filter(col ->
+                    !IcebergTable.ICEBERG_INTERNAL_COLUMNS.contains(col.getName())).toList();
+            outputFullSchema = outputFullSchema.stream().filter(col ->
+                    !IcebergTable.ICEBERG_INTERNAL_COLUMNS.contains(col.getName())).toList();
+        }
+
         refreshExternalTable(insertStmt.getQueryStatement(), session);
 
         //1. Process the literal value of the insert values type and cast it into the type of the target table
@@ -1013,19 +1020,9 @@ public class InsertPlanner {
         boolean skip = false;
         if (stmt.isSpecifyKeyPartition()) {
             if (targetTable.isIcebergTable()) {
-                skip = ((IcebergTable) targetTable).partitionColumnIndexes().contains(columnIdx);
+                return ((IcebergTable) targetTable).partitionColumnIndexes().contains(columnIdx);
             } else if (targetTable.isHiveTable()) {
-                skip = columnIdx >= (targetTable.getFullSchema().size() - targetTable.getPartitionColumnNames().size());
-            }
-        }
-        if (skip) {
-            return true;
-        }
-
-        if (targetTable.isIcebergTable()) {
-            Column targetColumn = outputBaseSchema.get(columnIdx);
-            if (IcebergTable.ICEBERG_INTERNAL_COLUMNS.contains(targetColumn.getName())) {
-                return true;
+                return columnIdx >= targetTable.getFullSchema().size() - targetTable.getPartitionColumnNames().size();
             }
         }
 
