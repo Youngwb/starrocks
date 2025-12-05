@@ -18,20 +18,20 @@
 
 namespace starrocks::parquet {
 
-// IcebergPosReader reads the $row_pos virtual column for Iceberg position deletes.
+// ParquetPosReader reads the $row_pos virtual column for Parquet files.
 // This column represents the position of a row within a file (file-internal offset),
-// which is used to write position delete files.
+// which is used for Iceberg position delete operations.
 //
 // Unlike IcebergRowIdReader which reads the global row ID (_row_id) from Iceberg V3,
-// IcebergPosReader generates positions based on the row group first row (file local offset).
+// ParquetPosReader generates positions based on the Parquet row group first row (file local offset).
 //
 // The position is calculated as: _row_group_first_row + i, where i is the row index within the row group.
-class IcebergPosReader final : public ColumnReader {
+class ParquetPosReader final : public ColumnReader {
 public:
     // row_group_first_row: The starting position of this row group within the file
-    explicit IcebergPosReader(int64_t row_group_first_row)
+    explicit ParquetPosReader(int64_t row_group_first_row)
             : ColumnReader(nullptr), _row_group_first_row(row_group_first_row) {}
-    ~IcebergPosReader() override = default;
+    ~ParquetPosReader() override = default;
 
     Status prepare() override { return Status::OK(); }
 

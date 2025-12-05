@@ -29,9 +29,9 @@
 #include "exprs/expr.h"
 #include "exprs/expr_context.h"
 #include "formats/parquet/column_reader_factory.h"
-#include "formats/parquet/iceberg_pos_reader.h"
 #include "formats/parquet/iceberg_row_id_reader.h"
 #include "formats/parquet/metadata.h"
+#include "formats/parquet/parquet_pos_reader.h"
 #include "formats/parquet/predicate_filter_evaluator.h"
 #include "formats/parquet/scalar_column_reader.h"
 #include "formats/parquet/schema.h"
@@ -376,7 +376,7 @@ Status GroupReader::_create_column_readers() {
             if (slot->col_name() == HdfsScanner::ICEBERG_ROW_ID) {
                 _column_readers.emplace(slot->id(), std::make_unique<IcebergRowIdReader>(_row_group_first_row_id));
             } else if (slot->col_name() == HdfsScanner::ICEBERG_ROW_POSITION) {
-                _column_readers.emplace(slot->id(), std::make_unique<IcebergPosReader>(_row_group_first_row));
+                _column_readers.emplace(slot->id(), std::make_unique<ParquetPosReader>(_row_group_first_row));
             }
         }
     }

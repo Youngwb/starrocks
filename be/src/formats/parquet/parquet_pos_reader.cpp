@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "formats/parquet/iceberg_pos_reader.h"
+#include "formats/parquet/parquet_pos_reader.h"
 
 #include "column/datum.h"
 #include "storage/range.h"
 
 namespace starrocks::parquet {
 
-Status IcebergPosReader::read_range(const Range<uint64_t>& range, const Filter* filter, ColumnPtr& dst) {
+Status ParquetPosReader::read_range(const Range<uint64_t>& range, const Filter* filter, ColumnPtr& dst) {
     if (filter == nullptr) {
         // No filter, generate positions for all rows in the range
         for (uint64_t i = range.begin(); i < range.end(); ++i) {
@@ -42,7 +42,7 @@ Status IcebergPosReader::read_range(const Range<uint64_t>& range, const Filter* 
     return Status::OK();
 }
 
-Status IcebergPosReader::fill_dst_column(ColumnPtr& dst, ColumnPtr& src) {
+Status ParquetPosReader::fill_dst_column(ColumnPtr& dst, ColumnPtr& src) {
     dst->swap_column(*src);
     return Status::OK();
 }
