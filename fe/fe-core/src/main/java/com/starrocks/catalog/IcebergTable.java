@@ -85,6 +85,7 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
@@ -104,6 +105,10 @@ public class IcebergTable extends Table {
     public static final String ROW_ID = "_row_id";
     public static final String FILE_PATH = "$file_path";
     public static final String ROW_POSITION = "$row_pos";
+
+    public static final Set<String> ICEBERG_INTERNAL_COLUMNS = Set.of(
+            DATA_SEQUENCE_NUMBER, SPEC_ID, ROW_ID, FILE_PATH, ROW_POSITION
+    );
 
     private String catalogName;
     @SerializedName(value = "dn")
