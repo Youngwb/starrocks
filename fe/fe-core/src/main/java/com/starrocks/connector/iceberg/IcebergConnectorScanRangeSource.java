@@ -332,7 +332,7 @@ public class IcebergConnectorScanRangeSource extends ConnectorScanRangeSource {
         for (SlotDescriptor slot : slots) {
             String name = slot.getColumn().getName();
             LiteralExpr value;
-            if (name.equalsIgnoreCase(DATA_SEQUENCE_NUMBER) ) {
+            if (name.equalsIgnoreCase(DATA_SEQUENCE_NUMBER)) {
                 value = LiteralExprFactory.create(String.valueOf(file.dataSequenceNumber()), IntegerType.BIGINT);
                 setExtendedColumns(slot, extendedColumns, value);
             } else if (name.equalsIgnoreCase(SPEC_ID)) {
