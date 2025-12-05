@@ -504,6 +504,7 @@ protected:
 
 public:
     static constexpr const char* ICEBERG_ROW_ID = "_row_id";
+    static constexpr const char* ICEBERG_ROW_POSITION = "$row_pos";
 };
 
 } // namespace starrocks

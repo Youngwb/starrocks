@@ -91,6 +91,7 @@ ADD_BE_LIB(Formats
         parquet/variant.h
         parquet/variant.cpp
         parquet/iceberg_row_id_reader.cpp
+        parquet/iceberg_row_position_reader.cpp
         disk_range.hpp
         )
 

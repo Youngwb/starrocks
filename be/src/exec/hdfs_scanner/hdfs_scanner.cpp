@@ -125,7 +125,7 @@ Status HdfsScanner::_build_scanner_context() {
     // build columns of materialized and partition.
     for (size_t i = 0; i < _scanner_params.materialize_slots.size(); i++) {
         auto* slot = _scanner_params.materialize_slots[i];
-        if (slot->col_name() == ICEBERG_ROW_ID) {
+        if (slot->col_name() == ICEBERG_ROW_ID || slot->col_name() == ICEBERG_ROW_POSITION) {
             ctx.reserved_field_slots.emplace_back(slot);
         } else {
             HdfsScannerContext::ColumnInfo column;
