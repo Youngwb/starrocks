@@ -170,7 +170,7 @@ public class DeletePlanner {
      * For Iceberg DELETE, we will:
      * 1. Generate SELECT $file_path, $row_pos, $op FROM table WHERE condition
      * 2. Write results to Parquet delete file using IcebergMergeSink
-     *
+     * <p>
      * The $op column is added to support future MERGE/UPDATE operations.
      * For DELETE operations, $op is always set to 1 (DELETE).
      */
@@ -233,8 +233,9 @@ public class DeletePlanner {
             mergeTuple.computeMemLayout();
 
             // Initialize IcebergMergeSink
+            descriptorTable.addReferencedTable(icebergTable);
             DataSink dataSink = new IcebergMergeSink(
-                    (IcebergTable) deleteStatement.getTable(),
+                    icebergTable,
                     mergeTuple,
                     session.getSessionVariable()
             );
@@ -269,14 +270,14 @@ public class DeletePlanner {
      * 2. Session variable enable_iceberg_delete_shuffle
      * 3. Estimated data size (TODO: implement estimation)
      *
-     * @param icebergTable The Iceberg table
+     * @param icebergTable  The Iceberg table
      * @param outputColumns Output columns from the logical plan (includes virtual columns + partition columns)
-     * @param session Connect context with session variables
+     * @param session       Connect context with session variables
      * @return PhysicalPropertySet with shuffle requirement or empty property
      */
     private PhysicalPropertySet createShuffleProperty(IcebergTable icebergTable,
-                                                       List<ColumnRefOperator> outputColumns,
-                                                       ConnectContext session) {
+                                                      List<ColumnRefOperator> outputColumns,
+                                                      ConnectContext session) {
         // Check if table is partitioned
         if (!icebergTable.isPartitioned()) {
             return new PhysicalPropertySet(); // No shuffle for non-partitioned tables
@@ -305,7 +306,7 @@ public class DeletePlanner {
                 HashDistributionDesc.SourceType.SHUFFLE_AGG
         );
 
-        DistributionProperty distributionProperty =  DistributionProperty.createProperty(
+        DistributionProperty distributionProperty = DistributionProperty.createProperty(
                 DistributionSpec.createHashDistributionSpec(distributionDesc));
 
         return new PhysicalPropertySet(distributionProperty);
