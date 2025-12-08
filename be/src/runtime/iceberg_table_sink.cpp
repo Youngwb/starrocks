@@ -67,15 +67,16 @@ Status IcebergTableSink::decompose_to_pipeline(pipeline::OpFactories prev_operat
     // Determine if this is a merge sink (delete files) or regular sink (data files)
     bool is_merge_sink = (thrift_sink.type == TDataSinkType::ICEBERG_MERGE_SINK);
 
-    connector::ConnectorChunkSinkProviderPtr sink_provider;
+    std::unique_ptr<connector::ConnectorChunkSinkProvider> sink_provider;
     std::shared_ptr<connector::ConnectorChunkSinkContext> sink_ctx;
     std::vector<TExpr> partition_expr;
+    std::vector<std::string> transform_exprs = iceberg_table_desc->get_transform_exprs();
 
     if (is_merge_sink) {
+        LOG(INFO) << "Creating merge sink for delete files";
         // Create merge sink context for delete files
         auto merge_sink_ctx = std::make_shared<connector::IcebergMergeSinkContext>();
-        merge_sink_ctx->path = t_iceberg_sink.location;
-        merge_sink_ctx->delete_location = t_iceberg_sink.delete_location;
+        merge_sink_ctx->path = t_iceberg_sink.data_location;
         merge_sink_ctx->cloud_configuration = t_iceberg_sink.cloud_configuration;
         merge_sink_ctx->compression_type = t_iceberg_sink.compression_type;
         if (t_iceberg_sink.__isset.target_max_file_size) {
@@ -99,6 +100,7 @@ Status IcebergTableSink::decompose_to_pipeline(pipeline::OpFactories prev_operat
         sink_ctx = merge_sink_ctx;
         auto connector = connector::ConnectorManager::default_instance()->get(connector::Connector::ICEBERG);
         sink_provider = connector->create_merge_sink_provider();
+        LOG(INFO) << "Creating merge sink for delete files 2";
     } else {
         // Create regular sink context for data files (existing logic)
         auto data_sink_ctx = std::make_shared<connector::IcebergChunkSinkContext>();
@@ -197,6 +199,7 @@ Status IcebergTableSink::decompose_to_pipeline(pipeline::OpFactories prev_operat
     size_t sink_dop = context->data_sink_dop();
 
     // Configure partitioning strategy
+    LOG(INFO) << "Configuring partitioning strategy";
     if (iceberg_table_desc->is_unpartitioned_table() || t_iceberg_sink.is_static_partition_sink) {
         auto ops = context->maybe_interpolate_local_passthrough_exchange(
                 runtime_state, pipeline::Operator::s_pseudo_plan_node_id_for_final_sink, prev_operators, sink_dop,
@@ -209,7 +212,7 @@ Status IcebergTableSink::decompose_to_pipeline(pipeline::OpFactories prev_operat
                                                 runtime_state));
         auto ops = context->interpolate_local_key_partition_exchange(
                 runtime_state, pipeline::Operator::s_pseudo_plan_node_id_for_final_sink, prev_operators,
-                partition_expr_ctxs, sink_dop, sink_ctx->transform_exprs);
+                partition_expr_ctxs, sink_dop, transform_exprs);
         ops.emplace_back(std::move(op));
         context->add_pipeline(std::move(ops));
     }

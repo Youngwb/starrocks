@@ -29,14 +29,16 @@ namespace connector {
 // Context for IcebergMergeSink
 // Contains configuration needed to write delete files
 struct IcebergMergeSinkContext : public ConnectorChunkSinkContext {
-    // Table location (e.g., s3://bucket/table)
-    std::string table_location;
-
-    // Where to store delete files (usually in metadata/ directory)
-    std::string delete_location;
+    std::string path;
+    std::vector<std::string> column_names;
+    std::vector<std::string> partition_column_names;
+    std::vector<std::string> transform_exprs;
+    std::vector<std::unique_ptr<ColumnEvaluator>> column_evaluators;
+    std::vector<std::unique_ptr<ColumnEvaluator>> partition_evaluators;
 
     // Compression type for Parquet files
     starrocks::TCompressionType::type compression_type;
+    std::map<std::string, std::string> options;
 
     // Maximum size of delete files before rolling to new file
     int64_t max_file_size = 128L * 1024 * 1024;  // 128MB default
@@ -75,6 +77,10 @@ public:
                      std::unique_ptr<PartitionChunkWriterFactory> partition_chunk_writer_factory,
                      RuntimeState* state);
     ~IcebergMergeSink() override = default;
+    
+    void callback_on_commit(const CommitResult& result) override {
+        // todo: add commit later
+    };
 
     Status add(const ChunkPtr& chunk) override;
 

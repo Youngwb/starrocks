@@ -79,8 +79,7 @@ StatusOr<std::unique_ptr<ConnectorChunkSink>> IcebergMergeSinkProvider::create_c
     // Create location provider for delete files
     // Delete files are stored in metadata/ directory
     auto location_provider = std::make_shared<connector::LocationProvider>(
-            ctx->delete_location.empty() ? ctx->path + "/metadata" : ctx->delete_location,
-            print_id(ctx->fragment_context->query_id()), runtime_state->be_number(), driver_id, "parquet");
+            ctx->path, print_id(ctx->fragment_context->query_id()), runtime_state->be_number(), driver_id, "parquet");
 
     // Create Parquet writer factory for delete files
     auto file_writer_factory = std::make_shared<formats::ParquetFileWriterFactory>(

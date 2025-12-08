@@ -16,6 +16,7 @@
 
 #include "common/logging.h"
 #include "connector/iceberg_chunk_sink.h"
+#include "connector/iceberg_merge_sink.h"
 #include "exec/data_sink.h"
 #include "exec/pipeline/sink/connector_sink_operator.h"
 
