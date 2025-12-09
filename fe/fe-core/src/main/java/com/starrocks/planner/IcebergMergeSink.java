@@ -173,7 +173,7 @@ public class IcebergMergeSink extends DataSink {
         cloudConfiguration.toThrift(tCloudConfiguration);
         tIcebergTableSink.setCloud_configuration(tCloudConfiguration);
 
-        tDataSink.setIceberg_merge_sink(tIcebergTableSink);
+        tDataSink.setIceberg_table_sink(tIcebergTableSink);
         return tDataSink;
     }
 
