@@ -14,6 +14,7 @@
 
 package com.starrocks.sql;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.starrocks.catalog.Column;
 import com.starrocks.catalog.Database;
@@ -36,6 +37,7 @@ import com.starrocks.server.GlobalStateMgr;
 import com.starrocks.sql.analyzer.SemanticException;
 import com.starrocks.sql.ast.DeleteStmt;
 import com.starrocks.sql.ast.QueryRelation;
+import com.starrocks.sql.ast.expression.Expr;
 import com.starrocks.sql.optimizer.OptExpression;
 import com.starrocks.sql.optimizer.Optimizer;
 import com.starrocks.sql.optimizer.OptimizerFactory;
@@ -52,7 +54,6 @@ import com.starrocks.sql.plan.ExecPlan;
 import com.starrocks.sql.plan.PlanFragmentBuilder;
 import com.starrocks.thrift.TResultSinkType;
 import com.starrocks.type.IntegerType;
-import com.starrocks.type.StringType;
 
 import java.util.List;
 
@@ -209,27 +210,16 @@ public class DeletePlanner {
             DescriptorTable descriptorTable = execPlan.getDescTbl();
             TupleDescriptor mergeTuple = descriptorTable.createTupleDescriptor();
 
-            // Add $file_path column
-            SlotDescriptor filePathSlot = descriptorTable.addSlotDescriptor(mergeTuple);
-            filePathSlot.setIsMaterialized(true);
-            filePathSlot.setType(StringType.STRING);
-            filePathSlot.setColumn(new Column(IcebergTable.FILE_PATH, StringType.STRING));
-            filePathSlot.setIsNullable(false);
-
-            // Add $row_pos column
-            SlotDescriptor posSlot = descriptorTable.addSlotDescriptor(mergeTuple);
-            posSlot.setIsMaterialized(true);
-            posSlot.setType(IntegerType.BIGINT);
-            posSlot.setColumn(new Column(IcebergTable.ROW_POSITION, IntegerType.BIGINT));
-            posSlot.setIsNullable(false);
-
-            // Add $op column (for future MERGE/UPDATE support)
-            SlotDescriptor opSlot = descriptorTable.addSlotDescriptor(mergeTuple);
-            opSlot.setIsMaterialized(true);
-            opSlot.setType(IntegerType.TINYINT);
-            opSlot.setColumn(new Column(IcebergMergeSink.OPERATION, IntegerType.TINYINT));
-            opSlot.setIsNullable(false);
-
+            List<Expr> outputExprs = execPlan.getOutputExprs();
+            Preconditions.checkArgument(colNames.size() == outputExprs.size(),
+                    "output column size mismatch");
+            for (int index = 0; index < colNames.size(); ++index) {
+                SlotDescriptor slot = descriptorTable.addSlotDescriptor(mergeTuple);
+                slot.setIsMaterialized(true);
+                slot.setType(outputExprs.get(index).getType());
+                slot.setColumn(new Column(colNames.get(index), outputExprs.get(index).getType()));
+                slot.setIsNullable(outputExprs.get(index).isNullable());
+            }
             mergeTuple.computeMemLayout();
 
             // Initialize IcebergMergeSink
