@@ -1336,7 +1336,7 @@ public class IcebergMetadata implements ConnectorMetadata {
                 org.apache.iceberg.DeleteFile deleteFile = FileMetadata.deleteFileBuilder(partitionSpec)
                         .ofPositionDeletes()
                         .withPath(dataFile.path)
-                        .withFormat(FileFormat.valueOf(dataFile.format))
+                        .withFormat(FileFormat.PARQUET)
                         .withFileSizeInBytes(dataFile.file_size_in_bytes)
                         .withRecordCount(dataFile.record_count)
                         .withPartition(dataFile.isSetPartition_path() ?
