@@ -73,6 +73,7 @@ public:
 class IcebergMergeSink final : public ConnectorChunkSink {
 public:
     IcebergMergeSink(std::vector<std::string> partition_columns,
+                     std::vector<std::string> transform_exprs,
                      std::vector<std::unique_ptr<ColumnEvaluator>>&& partition_column_evaluators,
                      std::unique_ptr<PartitionChunkWriterFactory> partition_chunk_writer_factory,
                      RuntimeState* state);
@@ -83,9 +84,9 @@ public:
     };
 
     Status add(const ChunkPtr& chunk) override;
-
+    
 private:
-    std::vector<std::string> _partition_column_names;
+    std::vector<std::string> _transform_exprs;
 };
 
 } // namespace connector

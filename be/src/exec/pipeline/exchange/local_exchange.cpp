@@ -307,6 +307,15 @@ Status KeyPartitionExchanger::accept(const ChunkPtr& chunk, const int32_t sink_d
     if (num_rows == 0) {
         return Status::OK();
     }
+    
+    LOG(INFO) << "chunk num rows: " << num_rows;
+    LOG(INFO) << "partition exprs size: " << _partition_expr_ctxs.size();
+    LOG(INFO) << "chunk debug columns: " << chunk->debug_columns();
+    LOG(INFO) << "chunk row 0" << chunk->debug_row(0);
+    const auto& slot_map = chunk->get_slot_id_to_index_map();
+    for (const auto& [slot_id, index] : slot_map) {
+        LOG(INFO) << "Slot ID " << slot_id << " -> Index " << index;
+    }
 
     Columns partition_columns;
     for (size_t i = 0; i < _partition_expr_ctxs.size(); i++) {

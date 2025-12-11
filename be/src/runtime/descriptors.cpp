@@ -236,12 +236,14 @@ IcebergTableDescriptor::IcebergTableDescriptor(const TTableDescriptor& tdesc, Ob
     _table_location = tdesc.icebergTable.location;
     _columns = tdesc.icebergTable.columns;
     _t_iceberg_schema = tdesc.icebergTable.iceberg_schema;
+    LOG(INFO) << "IcebergTableDescriptor: " << apache::thrift::ThriftDebugString(tdesc.icebergTable);
     if (tdesc.icebergTable.__isset.partition_info) {
         for (const auto& part_info : tdesc.icebergTable.partition_info) {
             _source_column_names.push_back(part_info.source_column_name);
             _partition_column_names.push_back(part_info.partition_column_name);
             _transform_exprs.push_back(part_info.transform_expr);
             _partition_exprs.push_back(part_info.partition_expr);
+            LOG(INFO) << "IcebergTableDescriptor partition_expr: " <<  apache::thrift::ThriftDebugString(part_info.partition_expr);
         }
     } else {
         _source_column_names = tdesc.icebergTable.partition_column_names; //to compat with lower fe, set this also

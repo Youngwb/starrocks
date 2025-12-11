@@ -48,10 +48,17 @@ public:
                                  pipeline::PipelineBuilderContext* context) const;
 
 private:
+    // Helper function to update slot references in partition expressions by matching column names
+    Status update_partition_expr_slot_refs_by_name(std::vector<TExpr>& partition_expr,
+                                                 const std::vector<int>& source_column_index,
+                                                 RuntimeState* runtime_state,
+                                                 IcebergTableDescriptor* iceberg_table_desc,
+                                                 int tuple_desc_id) const;
+
     ObjectPool* _pool;
     const std::vector<TExpr>& _t_output_expr;
     std::vector<ExprContext*> _output_expr_ctxs;
-    RuntimeProfile* _profile = nullptr;
+    RuntimeProfile* _profile = nullptr;  
 };
 
 } // namespace starrocks

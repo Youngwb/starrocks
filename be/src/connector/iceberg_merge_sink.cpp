@@ -30,25 +30,38 @@ namespace starrocks::connector {
 
 // IcebergMergeSink implementation
 IcebergMergeSink::IcebergMergeSink(std::vector<std::string> partition_columns,
+                                   std::vector<std::string> transform_exprs,
                                    std::vector<std::unique_ptr<ColumnEvaluator>>&& partition_column_evaluators,
                                    std::unique_ptr<PartitionChunkWriterFactory> partition_chunk_writer_factory,
                                    RuntimeState* state)
         : ConnectorChunkSink(std::move(partition_columns), std::move(partition_column_evaluators),
-                             std::move(partition_chunk_writer_factory), state, true) {}
+                             std::move(partition_chunk_writer_factory), state, true),
+          _transform_exprs(std::move(transform_exprs)) {}
 
 Status IcebergMergeSink::add(const ChunkPtr& chunk) {
+    int num_rows = chunk->num_rows();
+    if (num_rows == 0) {
+        return Status::OK();
+    }
     std::string partition = DEFAULT_PARTITION;
     bool partitioned = !_partition_column_names.empty();
     std::vector<int8_t> partition_field_null_list;
-
+    
+    LOG(INFO) << "partition columns size: " << _partition_column_names.size();
+    for (auto partiton_col : _partition_column_names) {
+        LOG(INFO) << "partition column: " << partiton_col;
+    }
     // If table is partitioned, compute the partition name
     if (partitioned) {
         ASSIGN_OR_RETURN(partition, HiveUtils::iceberg_make_partition_name(
                                             _partition_column_names, _partition_column_evaluators,
-                                            std::vector<std::string>(), chunk.get(), _support_null_partition,
+                                            _transform_exprs, chunk.get(), _support_null_partition,
                                             partition_field_null_list));
     }
-
+    
+    LOG(INFO) << "IcebergMergeSink: partition=" << partition;
+    LOG(INFO) << "chunk debug columns: " << chunk->debug_columns();
+    LOG(INFO) << "chunk row 0" << chunk->debug_row(0);
     // Write the chunk to delete file
     RETURN_IF_ERROR(ConnectorChunkSink::write_partition_chunk(partition, partition_field_null_list, chunk));
     return Status::OK();
@@ -71,20 +84,29 @@ StatusOr<std::unique_ptr<ConnectorChunkSink>> IcebergMergeSinkProvider::create_c
     // For delete files, we only need file_path and row_position columns
     // These should already be in the chunk when it reaches the sink
     std::vector<std::string> column_names = {"file_path", "pos"};
-
-    // Clone column evaluators if any
-    auto column_evaluators = std::make_shared<std::vector<std::unique_ptr<ColumnEvaluator>>>(
-            ColumnEvaluator::clone(ctx->column_evaluators));
+    // We only need evaluators for the two columns: file_path and pos
+    std::vector<std::unique_ptr<ColumnEvaluator>> column_evaluators_vec;
+    column_evaluators_vec.push_back(ctx->column_evaluators[0]->clone());
+    column_evaluators_vec.push_back(ctx->column_evaluators[1]->clone());
+    auto column_evaluators = std::make_shared<std::vector<std::unique_ptr<ColumnEvaluator>>>(std::move(column_evaluators_vec));
 
     // Create location provider for delete files
     // Delete files are stored in metadata/ directory
     auto location_provider = std::make_shared<connector::LocationProvider>(
             ctx->path, print_id(ctx->fragment_context->query_id()), runtime_state->be_number(), driver_id, "parquet");
 
+    std::vector<formats::FileColumnId> file_column_ids(column_names.size());
+    // file_path column (index 0)
+    file_column_ids[0].field_id = 1;  
+    // pos column (index 1)  
+    file_column_ids[1].field_id = 2; 
+
     // Create Parquet writer factory for delete files
     auto file_writer_factory = std::make_shared<formats::ParquetFileWriterFactory>(
             fs, ctx->compression_type, ctx->options, column_names, column_evaluators,
-            std::vector<formats::FileColumnId>(), ctx->executor, runtime_state);
+            file_column_ids, ctx->executor, runtime_state);
+
+    LOG(INFO) << "partition columns size: " << ctx->partition_column_names.size();
 
     // Create partition chunk writer factory
     std::unique_ptr<PartitionChunkWriterFactory> partition_chunk_writer_factory;
@@ -105,7 +127,7 @@ StatusOr<std::unique_ptr<ConnectorChunkSink>> IcebergMergeSinkProvider::create_c
     }
 
     // Create the merge sink
-    return std::make_unique<IcebergMergeSink>(ctx->partition_column_names,
+    return std::make_unique<IcebergMergeSink>(ctx->partition_column_names, ctx->transform_exprs,
                                               ColumnEvaluator::clone(ctx->partition_evaluators),
                                               std::move(partition_chunk_writer_factory), runtime_state);
 }

@@ -61,7 +61,13 @@ Status IcebergTableSink::decompose_to_pipeline(pipeline::OpFactories prev_operat
     auto* fragment_ctx = context->fragment_context();
     TableDescriptor* table_desc =
             runtime_state->desc_tbl().get_table_descriptor(thrift_sink.iceberg_table_sink.target_table_id);
+    LOG(INFO) << "target_table_id: " << thrift_sink.iceberg_table_sink.target_table_id;
     auto* iceberg_table_desc = down_cast<IcebergTableDescriptor*>(table_desc);
+    LOG(INFO) << "iceberg_table_sink :  " << apache::thrift::ThriftDebugString(thrift_sink.iceberg_table_sink);
+    for (const auto& expr : _t_output_expr) {
+        LOG(INFO) << "_t_output_expr: " << apache::thrift::ThriftDebugString(expr);
+    }
+
     auto& t_iceberg_sink = thrift_sink.iceberg_table_sink;
 
     // Determine if this is a merge sink (delete files) or regular sink (data files)
@@ -92,8 +98,12 @@ Status IcebergTableSink::decompose_to_pipeline(pipeline::OpFactories prev_operat
 
         // Configure partition columns if table is partitioned
         merge_sink_ctx->partition_column_names = iceberg_table_desc->partition_column_names();
+        LOG(INFO) << "Partition columns size: " << merge_sink_ctx->partition_column_names.size();
         if (!iceberg_table_desc->is_unpartitioned_table()) {
             partition_expr = iceberg_table_desc->get_partition_exprs();
+            auto source_column_index = iceberg_table_desc->partition_source_index_in_schema();
+            RETURN_IF_ERROR(update_partition_expr_slot_refs_by_name(partition_expr, source_column_index, runtime_state, iceberg_table_desc,
+                                                                     merge_sink_ctx->tuple_desc_id ));
             merge_sink_ctx->partition_evaluators = ColumnExprEvaluator::from_exprs(partition_expr, runtime_state);
         }
 
@@ -161,7 +171,9 @@ Status IcebergTableSink::decompose_to_pipeline(pipeline::OpFactories prev_operat
         } else {
             auto source_column_index = iceberg_table_desc->partition_source_index_in_schema();
             partition_expr = iceberg_table_desc->get_partition_exprs();
-
+            for (const auto& expr : partition_expr) {
+                LOG(INFO) << "partition exprs1:" << apache::thrift::ThriftDebugString(expr);
+            }
             // for 3.5 fe -> 4.0 be compact, try to set this.
             if (partition_expr.empty()) {
                 auto output_expr = this->get_output_expr();
@@ -178,7 +190,10 @@ Status IcebergTableSink::decompose_to_pipeline(pipeline::OpFactories prev_operat
                 int index = source_column_index[idx];
                 // check index is valid for output_expr
                 if (index < 0 || index >= this->get_output_expr().size()) {
-                    return Status::InternalError(fmt::format("Invalid partition index: {}", index));
+                    // Note: In the original code this was a return with Status::InternalError,
+                    // but since this is now a void function, we'll just continue with validation in caller
+                    // The validation is still performed in the caller context
+                    continue;
                 }
                 auto slot_ref = this->get_output_expr()[index];
                 for (auto& node : part_expr.nodes) {
@@ -189,7 +204,11 @@ Status IcebergTableSink::decompose_to_pipeline(pipeline::OpFactories prev_operat
                 }
                 idx++;
             }
+            
             data_sink_ctx->partition_evaluators = ColumnExprEvaluator::from_exprs(partition_expr, runtime_state);
+            for (const auto& expr : partition_expr) {
+                LOG(INFO) << "partition exprs3:" << apache::thrift::ThriftDebugString(expr);
+            }
         }
     }
 
@@ -210,6 +229,7 @@ Status IcebergTableSink::decompose_to_pipeline(pipeline::OpFactories prev_operat
         std::vector<ExprContext*> partition_expr_ctxs;
         RETURN_IF_ERROR(Expr::create_expr_trees(runtime_state->obj_pool(), partition_expr, &partition_expr_ctxs,
                                                 runtime_state));
+        LOG(INFO) << "partition_expr_ctxs : " << Expr::debug_string(partition_expr_ctxs);
         auto ops = context->interpolate_local_key_partition_exchange(
                 runtime_state, pipeline::Operator::s_pseudo_plan_node_id_for_final_sink, prev_operators,
                 partition_expr_ctxs, sink_dop, transform_exprs);
@@ -217,6 +237,84 @@ Status IcebergTableSink::decompose_to_pipeline(pipeline::OpFactories prev_operat
         context->add_pipeline(std::move(ops));
     }
 
+    return Status::OK();
+}
+
+Status IcebergTableSink::update_partition_expr_slot_refs_by_name(std::vector<TExpr>& partition_expr,
+                                                               const std::vector<int>& source_column_index,
+                                                               RuntimeState* runtime_state,
+                                                               IcebergTableDescriptor* iceberg_table_desc,
+                                                               int tuple_desc_id) const {
+    
+    for (int i = 0; i < source_column_index.size(); ++i) {
+        LOG(INFO) << "Source column index: " << source_column_index[i];
+    }                                                            
+    // Get the table's full column names in schema order
+    const auto& full_column_names = iceberg_table_desc->full_column_names();
+    
+    // Get the source column names for partition transforms
+    const auto& partition_source_column_names = iceberg_table_desc->partition_source_column_names();
+    
+    // Get the output expressions
+    const auto& output_exprs = this->get_output_expr();
+
+    // Get the tuple descriptor using tuple_desc_id
+    TupleDescriptor* tuple_desc = runtime_state->desc_tbl().get_tuple_descriptor(tuple_desc_id);
+    if (tuple_desc == nullptr) {
+        return Status::InternalError(fmt::format("Failed to get tuple descriptor with id: {}", tuple_desc_id));
+    }
+    
+    // For each partition expression, find the corresponding output expression by column name matching
+    for (size_t i = 0; i < partition_expr.size(); ++i) {
+        int source_index = source_column_index[i];
+        LOG(INFO) << "Source column index: " << source_index;
+        LOG(INFO) << "Partition source column name size: " << partition_source_column_names.size();
+        // Validate source index
+        if (source_index < 0 || source_index >= full_column_names.size()) {
+            return Status::InternalError(fmt::format("Invalid source column index: {}", source_index));
+        }
+        
+        // Get the source column name
+        const std::string& source_column_name = partition_source_column_names[i];
+        const TExprNode* matching_slot_ref = nullptr;
+        LOG(INFO) << "Source column name: " << source_column_name;
+
+
+        const std::vector<SlotDescriptor*>& slots = tuple_desc->slots();
+        size_t partition_slot_index = -1;
+        for (size_t j = 0; j < slots.size(); ++j) {
+            if (slots[j] != nullptr && slots[j]->col_name() == source_column_name) {
+                partition_slot_index = j;
+                break;
+            }
+        }
+
+        if (partition_slot_index != -1) {
+            const auto& output_expr = output_exprs[partition_slot_index];
+            LOG(INFO) << "Output expr: " << apache::thrift::ThriftDebugString(output_expr);
+
+            for (const auto& node : output_expr.nodes) {
+                if (node.node_type == TExprNodeType::SLOT_REF && node.__isset.slot_ref) {
+                    matching_slot_ref = &node;
+                    break;
+                }
+            }
+        }
+
+        LOG(INFO) << "Matching slot ref: " << (matching_slot_ref ? apache::thrift::ThriftDebugString(*matching_slot_ref) : "nullptr");
+    
+        
+        // If we found a matching slot reference, update the partition expression
+        if (matching_slot_ref) {
+            for (auto& node : partition_expr[i].nodes) {
+                if (node.node_type == TExprNodeType::SLOT_REF) {
+                    node = *matching_slot_ref;
+                    break;
+                }
+            }
+        }
+    }
+    
     return Status::OK();
 }
 

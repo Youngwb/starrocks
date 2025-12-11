@@ -54,8 +54,11 @@ Status ParquetFileWriter::write(Chunk* chunk) {
                 _writer->AppendBufferedRowGroup(), _type_descs, _schema, _eval_func, _writer_options->time_zone,
                 _writer_options->use_legacy_decimal_encoding, _writer_options->use_int96_timestamp_encoding);
     }
+    LOG(INFO) << "chunk debug columns: " << chunk->debug_columns();
+    LOG(INFO) << "chunk row 0" << chunk->debug_row(0);
 
     RETURN_IF_ERROR(_rowgroup_writer->write(chunk));
+    LOG(INFO) << "write chunk done";
 
     if (_rowgroup_writer->estimated_buffered_bytes() >= _writer_options->rowgroup_size) {
         return _flush_row_group();
@@ -278,6 +281,16 @@ StatusOr<::parquet::Compression::type> ParquetFileWriter::_convert_compression_t
 arrow::Result<std::shared_ptr<::parquet::schema::GroupNode>> ParquetFileWriter::_make_schema(
         const std::vector<std::string>& column_names, const std::vector<TypeDescriptor>& type_descs,
         const std::vector<FileColumnId>& file_column_ids) {
+    for (int i = 0; i < column_names.size(); i++) {
+        LOG(INFO) << "Column name: " << column_names[i];
+    }
+    for (int i = 0; i < type_descs.size(); i++) {
+        LOG(INFO) << "Column type: " << type_descs[i].debug_string();
+    }
+    LOG(INFO) << "Column file column id size: " << file_column_ids.size();
+    for (int i = 0; i < file_column_ids.size(); i++) {
+        LOG(INFO) << "Column file column id: " << file_column_ids[i].field_id;
+    }
     ::parquet::schema::NodeVector fields;
     for (int i = 0; i < type_descs.size(); i++) {
         ARROW_ASSIGN_OR_RAISE(auto node, _make_schema_node(column_names[i], type_descs[i],
@@ -505,6 +518,7 @@ Status ParquetFileWriterFactory::init() {
 
 StatusOr<WriterAndStream> ParquetFileWriterFactory::create(const std::string& path) const {
     ASSIGN_OR_RETURN(auto file, _fs->new_writable_file(WritableFileOptions{.direct_write = true}, path));
+    LOG(INFO) << "ParquetFileWriterFactory::create path=" << path;
     auto rollback_action = [fs = _fs, path = path]() {
         WARN_IF_ERROR(ignore_not_found(fs->delete_file(path)), "fail to delete file");
     };

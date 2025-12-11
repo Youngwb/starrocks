@@ -81,10 +81,17 @@ StatusOr<std::string> HiveUtils::iceberg_make_partition_name(
     DCHECK_EQ(partition_column_names.size(), transform_exprs.size());
     std::stringstream ss;
     field_is_null.resize(partition_column_names.size(), false);
+    LOG(INFO) << "iceberg_make_partition_name";
     if (chunk->has_extra_data()) {
+        LOG(INFO) << "chunk has extra data";
         const auto& extra_data = down_cast<ChunkExtraColumnsData*>(chunk->get_extra_data().get());
         const auto& metadatas = extra_data->chunk_data_metas();
         const auto& columns = extra_data->columns();
+        LOG(INFO) << "chunk has extra data, columns size: " << columns.size();
+        LOG(INFO) << "chunk has extra data, metadatas size: " << metadatas.size();
+        LOG(INFO) << "chunk has extra data, partition_column_names size: " << partition_column_names.size();
+        LOG(INFO) << "chunk has extra data, transform_exprs size: " << transform_exprs.size();
+        LOG(INFO) << "chunk has extra data, field_is_null size: " << field_is_null.size();
         DCHECK_EQ(columns.size(), partition_column_names.size());
         for (size_t i = 0; i < columns.size(); i++) {
             const auto& meta = metadatas.at(i);
@@ -97,6 +104,8 @@ StatusOr<std::string> HiveUtils::iceberg_make_partition_name(
             ss << partition_column_names[i] << "=" << value << "/";
         }
     } else {
+        LOG(INFO) << "chunk has no extra data";
+        LOG(INFO) << "chunk has no extra data, column_evaluators size: " << column_evaluators.size();
         for (size_t i = 0; i < column_evaluators.size(); i++) {
             ASSIGN_OR_RETURN(auto column, column_evaluators[i]->evaluate(chunk));
             auto type = column_evaluators[i]->type();
@@ -114,6 +123,11 @@ StatusOr<std::string> HiveUtils::iceberg_make_partition_name(
 StatusOr<std::string> HiveUtils::iceberg_column_value(const TypeDescriptor& type_desc, const ColumnPtr& column,
                                                       const int idx, const std::string& transform_expr,
                                                       int8_t& is_null) {
+    LOG(INFO) << "iceberg_column_value type: " << type_desc.debug_string() << ", transform_expr: " << transform_expr;
+    LOG(INFO) << "iceberg_column_value column: " << column->debug_string();
+    LOG(INFO) << "iceberg_column_value idx: " << idx;
+    LOG(INFO) << "iceberg_column_value is_null: " << is_null;
+                                                      
     std::string value;
     is_null = false;
     if (idx >= column->size()) {
@@ -159,10 +173,12 @@ StatusOr<std::string> HiveUtils::iceberg_column_value(const TypeDescriptor& type
     } else if (transform_expr.compare(0, 6, "bucket") == 0) {
         ASSIGN_OR_RETURN(value, column_value(type_desc, column, idx));
     } else if (transform_expr == "identity") {
+        LOG(INFO) << "iceberg_column_value identity";
         ASSIGN_OR_RETURN(value, column_value(type_desc, column, idx));
     } else {
         return Status::InternalError("Unsupported type for iceberg partition transform:" + transform_expr);
     }
+    LOG(INFO) << "iceberg_column_value result: " << value;
     return value;
 }
 

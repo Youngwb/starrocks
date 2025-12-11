@@ -201,18 +201,11 @@ Status DataSink::create_data_sink(RuntimeState* state, const TDataSink& thrift_s
         break;
     }
 #ifndef __APPLE__
-    case TDataSinkType::ICEBERG_TABLE_SINK: {
+    case TDataSinkType::ICEBERG_TABLE_SINK:
+    case TDataSinkType::ICEBERG_MERGE_SINK: {
         if (!thrift_sink.__isset.iceberg_table_sink) {
             return Status::InternalError("Missing iceberg table sink");
         }
-        *sink = std::make_unique<IcebergTableSink>(state->obj_pool(), output_exprs);
-        break;
-    }
-    case TDataSinkType::ICEBERG_MERGE_SINK: {
-        if (!thrift_sink.__isset.iceberg_merge_sink) {
-            return Status::InternalError("Missing iceberg merge sink");
-        }
-        // IcebergMergeSink also uses IcebergTableSink for pipeline decomposition
         *sink = std::make_unique<IcebergTableSink>(state->obj_pool(), output_exprs);
         break;
     }
@@ -294,6 +287,8 @@ Status DataSink::decompose_data_sink_to_pipeline(pipeline::PipelineBuilderContex
                                                  pipeline::OpFactories prev_operators,
                                                  const pipeline::UnifiedExecPlanFragmentParams& request,
                                                  const TDataSink& thrift_sink, const std::vector<TExpr>& output_exprs) {
+    LOG(INFO) << "Decomposing data sink to pipeline";
+    LOG(INFO) << "Decomposing data sink to pipeline: " << thrift_sink.type;
     using namespace pipeline;
     auto fragment_ctx = context->fragment_context();
     size_t dop = context->source_operator(prev_operators)->degree_of_parallelism();
@@ -499,6 +494,7 @@ Status DataSink::decompose_data_sink_to_pipeline(pipeline::PipelineBuilderContex
         context->add_pipeline(std::move(prev_operators));
 #ifndef __APPLE__
     } else if (typeid(*this) == typeid(IcebergTableSink)) {
+        LOG(INFO) << "Decomposing IcebergTableSink to pipeline";
         auto* iceberg_table_sink = down_cast<IcebergTableSink*>(this);
         RETURN_IF_ERROR(iceberg_table_sink->decompose_to_pipeline(prev_operators, thrift_sink, context));
 #endif
