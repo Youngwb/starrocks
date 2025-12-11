@@ -79,9 +79,7 @@ public:
                      RuntimeState* state);
     ~IcebergMergeSink() override = default;
     
-    void callback_on_commit(const CommitResult& result) override {
-        // todo: add commit later
-    };
+    void callback_on_commit(const CommitResult& result) override;
 
     Status add(const ChunkPtr& chunk) override;
     

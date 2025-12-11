@@ -35,6 +35,7 @@
 namespace cpp starrocks
 namespace java com.starrocks.thrift
 
+include "PlanNodes.thrift"
 
 typedef i64 TTimestamp
 typedef i32 TPlanNodeId
@@ -585,6 +586,7 @@ struct TIcebergDataFile {
     6: optional list<i64> split_offsets;
     7: optional TIcebergColumnStats column_stats;
     8: optional string partition_null_fingerprint;
+    9: optional PlanNodes.TIcebergFileContent file_content;
 }
 
 struct THiveFileInfo {

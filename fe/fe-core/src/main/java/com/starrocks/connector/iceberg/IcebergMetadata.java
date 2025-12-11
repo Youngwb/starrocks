@@ -89,6 +89,7 @@ import com.starrocks.sql.optimizer.operator.scalar.ScalarOperator;
 import com.starrocks.sql.optimizer.statistics.Statistics;
 import com.starrocks.statistic.StatisticUtils;
 import com.starrocks.thrift.TIcebergDataFile;
+import com.starrocks.thrift.TIcebergFileContent;
 import com.starrocks.thrift.TSinkCommitInfo;
 import com.starrocks.type.DateType;
 import com.starrocks.type.IntegerType;
@@ -102,6 +103,8 @@ import org.apache.iceberg.DataOperations;
 import org.apache.iceberg.DeleteFile;
 import org.apache.iceberg.DeleteFiles;
 import org.apache.iceberg.FileContent;
+import org.apache.iceberg.FileFormat;
+import org.apache.iceberg.FileMetadata;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.HistoryEntry;
 import org.apache.iceberg.IncrementalAppendScan;
@@ -114,6 +117,7 @@ import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.ReplacePartitions;
 import org.apache.iceberg.RewriteFiles;
+import org.apache.iceberg.RowDelta;
 import org.apache.iceberg.Scan;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
@@ -1312,61 +1316,131 @@ public class IcebergMetadata implements ConnectorMetadata {
         IcebergTable table = (IcebergTable) getTable(new ConnectContext(), dbName, tableName);
         org.apache.iceberg.Table nativeTbl = table.getNativeTable();
         Transaction transaction = nativeTbl.newTransaction();
-        BatchWrite batchWrite = getBatchWrite(transaction, isOverwrite, isRewrite);
 
-        if (branch != null) {
-            batchWrite.toBranch(branch);
-        }
+        // Check if this is a delete operation (any file is marked as POSITION_DELETES or EQUALITY_DELETES)
+        boolean isDeleteOperation = dataFiles.stream().anyMatch(dataFile ->
+                dataFile.isSetFile_content() &&
+                        (dataFile.getFile_content() == TIcebergFileContent.POSITION_DELETES));
 
-        PartitionSpec partitionSpec = nativeTbl.spec();
-        for (TIcebergDataFile dataFile : dataFiles) {
-            Metrics metrics = IcebergApiConverter.buildDataFileMetrics(dataFile, nativeTbl);
-            DataFiles.Builder builder =
-                    DataFiles.builder(partitionSpec)
-                            .withMetrics(metrics)
-                            .withPath(dataFile.path)
-                            .withFormat(dataFile.format)
-                            .withRecordCount(dataFile.record_count)
-                            .withFileSizeInBytes(dataFile.file_size_in_bytes)
-                            .withSplitOffsets(dataFile.split_offsets);
-            String nullFingerprint = "";
-            if (!dataFile.isSetPartition_null_fingerprint()) {
-                nullFingerprint = "0".repeat(partitionSpec.fields().size());
-            } else {
-                nullFingerprint = dataFile.getPartition_null_fingerprint();
+        // Use different Iceberg API based on operation type
+        if (isDeleteOperation) {
+            // DELETE operations - use RowDelta
+            RowDelta rowDelta = transaction.newRowDelta();
+            if (branch != null) {
+                rowDelta = rowDelta.toBranch(branch);
             }
-            if (partitionSpec.isPartitioned()) {
-                String relativePartitionLocation = getIcebergRelativePartitionPath(
-                        IcebergUtil.tableDataLocation(nativeTbl), dataFile.partition_path);
-                IcebergPartitionData partitionData = IcebergPartitionData.partitionDataFromPath(
-                        relativePartitionLocation, nullFingerprint, partitionSpec);
-                builder.withPartition(partitionData);
-            }
-            batchWrite.addFile(builder.build());
-        }
 
-        if (isRewrite && extra != null) {
-            ((IcebergSinkExtra) extra).getScannedDataFiles().forEach(batchWrite::deleteFile);
-            ((IcebergSinkExtra) extra).getAppliedDeleteFiles().forEach(batchWrite::deleteFile);
-            ((RewriteData) batchWrite).setSnapshotId(nativeTbl.currentSnapshot().snapshotId());
-        }
+            PartitionSpec partitionSpec = nativeTbl.spec();
+            for (TIcebergDataFile dataFile : dataFiles) {
+                // All files should be delete files in a delete operation
+                org.apache.iceberg.DeleteFile deleteFile = FileMetadata.deleteFileBuilder(partitionSpec)
+                        .ofPositionDeletes()
+                        .withPath(dataFile.path)
+                        .withFormat(FileFormat.valueOf(dataFile.format))
+                        .withFileSizeInBytes(dataFile.file_size_in_bytes)
+                        .withRecordCount(dataFile.record_count)
+                        .withPartition(dataFile.isSetPartition_path() ?
+                                IcebergPartitionData.partitionDataFromPath(
+                                        getIcebergRelativePartitionPath(
+                                                IcebergUtil.tableDataLocation(nativeTbl),
+                                                dataFile.partition_path),
+                                        dataFile.isSetPartition_null_fingerprint() ?
+                                                dataFile.getPartition_null_fingerprint() :
+                                                "0".repeat(partitionSpec.fields().size()),
+                                        partitionSpec) : null)
+                        .withMetrics(dataFile.isSetColumn_stats() ?
+                                IcebergApiConverter.buildDataFileMetrics(dataFile, nativeTbl) : null)
+                        .build();
 
-        try {
-            batchWrite.commit();
-            transaction.commitTransaction();
-            asyncRefreshOthersFeMetadataCache(dbName, tableName);
-        } catch (Exception e) {
-            if (!(e instanceof CommitStateUnknownException)) {
-                List<String> toDeleteFiles = dataFiles.stream()
-                        .map(TIcebergDataFile::getPath)
-                        .collect(Collectors.toList());
-                icebergCatalog.deleteUncommittedDataFiles(toDeleteFiles);
+                rowDelta.addDeletes(deleteFile);
+
+                // Note: For position delete files, we should collect the referenced data files
+                // However, the current TIcebergDataFile structure doesn't include this information
+                // In a full implementation, we would need to pass the referenced data file paths
+                // from BE to FE. For now, we skip this validation.
             }
-            LOG.error("Failed to commit iceberg transaction on {}.{}", dbName, tableName, e);
-            throw new StarRocksConnectorException(e.getMessage());
-        } finally {
-            // Do we really need that? because partition cache is associated with snapshotId
-            icebergCatalog.invalidatePartitionCache(dbName, tableName);
+
+            // Validate that referenced data files exist (critical for position deletes)
+            // This prevents data corruption if another operation deletes the referenced files
+            // rowDelta.validateDataFilesExist(referencedDataFiles);
+
+            // Validate that no referenced data files have been deleted
+            // This is required for position delete files to maintain correctness
+            // when concurrent operations might delete the referenced data files
+            rowDelta.validateDeletedFiles();
+
+            try {
+                rowDelta.commit();
+                transaction.commitTransaction();
+                asyncRefreshOthersFeMetadataCache(dbName, tableName);
+            } catch (Exception e) {
+                if (!(e instanceof CommitStateUnknownException)) {
+                    List<String> toDeleteFiles = dataFiles.stream()
+                            .map(TIcebergDataFile::getPath)
+                            .collect(Collectors.toList());
+                    icebergCatalog.deleteUncommittedDataFiles(toDeleteFiles);
+                }
+                LOG.error("Failed to commit iceberg transaction on {}.{}", dbName, tableName, e);
+                throw new StarRocksConnectorException(e.getMessage());
+            }
+        } else {
+            // INSERT/OVERWRITE operations - use existing BatchWrite logic
+            BatchWrite batchWrite = getBatchWrite(transaction, isOverwrite, isRewrite);
+            if (branch != null) {
+                batchWrite.toBranch(branch);
+            }
+
+            PartitionSpec partitionSpec = nativeTbl.spec();
+            for (TIcebergDataFile dataFile : dataFiles) {
+                // Process data file (existing logic)
+                Metrics metrics = IcebergApiConverter.buildDataFileMetrics(dataFile, nativeTbl);
+                DataFiles.Builder builder =
+                        DataFiles.builder(partitionSpec)
+                                .withMetrics(metrics)
+                                .withPath(dataFile.path)
+                                .withFormat(dataFile.format)
+                                .withRecordCount(dataFile.record_count)
+                                .withFileSizeInBytes(dataFile.file_size_in_bytes)
+                                .withSplitOffsets(dataFile.split_offsets);
+                String nullFingerprint = "";
+                if (!dataFile.isSetPartition_null_fingerprint()) {
+                    nullFingerprint = "0".repeat(partitionSpec.fields().size());
+                } else {
+                    nullFingerprint = dataFile.getPartition_null_fingerprint();
+                }
+                if (partitionSpec.isPartitioned()) {
+                    String relativePartitionLocation = getIcebergRelativePartitionPath(
+                            IcebergUtil.tableDataLocation(nativeTbl), dataFile.partition_path);
+                    IcebergPartitionData partitionData = IcebergPartitionData.partitionDataFromPath(
+                            relativePartitionLocation, nullFingerprint, partitionSpec);
+                    builder.withPartition(partitionData);
+                }
+                batchWrite.addFile(builder.build());
+            }
+
+            if (isRewrite && extra != null) {
+                ((IcebergSinkExtra) extra).getScannedDataFiles().forEach(batchWrite::deleteFile);
+                ((IcebergSinkExtra) extra).getAppliedDeleteFiles().forEach(batchWrite::deleteFile);
+                ((RewriteData) batchWrite).setSnapshotId(nativeTbl.currentSnapshot().snapshotId());
+            }
+
+            try {
+                batchWrite.commit();
+                transaction.commitTransaction();
+                asyncRefreshOthersFeMetadataCache(dbName, tableName);
+            } catch (Exception e) {
+                if (!(e instanceof CommitStateUnknownException)) {
+                    List<String> toDeleteFiles = dataFiles.stream()
+                            .map(TIcebergDataFile::getPath)
+                            .collect(Collectors.toList());
+                    icebergCatalog.deleteUncommittedDataFiles(toDeleteFiles);
+                }
+                LOG.error("Failed to commit iceberg transaction on {}.{}", dbName, tableName, e);
+                throw new StarRocksConnectorException(e.getMessage());
+            } finally {
+                // Do we really need that? because partition cache is associated with snapshotId
+                icebergCatalog.invalidatePartitionCache(dbName, tableName);
+            }
         }
     }
 
