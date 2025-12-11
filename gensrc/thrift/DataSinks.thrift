@@ -297,5 +297,4 @@ struct TDataSink {
   15: optional list<TDataSink> multi_olap_table_sinks
   16: optional i64 sink_id
   17: optional TSplitDataStreamSink split_stream_sink
-  18: optional TIcebergTableSink iceberg_merge_sink
 }
