@@ -47,20 +47,16 @@ import static com.starrocks.sql.ast.OutFileClause.PARQUET_COMPRESSION_TYPE_MAP;
  *                   For backward compatibility, this is optional for DELETE-only operations.
  */
 public class IcebergMergeSink extends DataSink {
-    public final static int ICEBERG_MERGE_SINK_MAX_DOP = 32;
-
     public static final String OPERATION = "$op";  // 0=INSERT, 1=DELETE, 2=UPDATE
 
     protected final TupleDescriptor desc;
     private final long targetTableId;
     private final String tableLocation;
     private final String dataLocation;
-    private final String deleteLocation;
     private final String compressionType;
     private final long targetMaxFileSize;
     private final String tableIdentifier;
     private final CloudConfiguration cloudConfiguration;
-    private String targetBranch;
 
     /**
      * Constructor for IcebergMergeSink
@@ -74,8 +70,6 @@ public class IcebergMergeSink extends DataSink {
         this.desc = desc;
         this.tableLocation = nativeTable.location();
         this.dataLocation = IcebergUtil.tableDataLocation(nativeTable);
-        // Delete files are stored in metadata/ directory
-        this.deleteLocation = this.tableLocation + "/metadata";
         this.targetTableId = icebergTable.getId();
         this.tableIdentifier = icebergTable.getUUID();
         this.compressionType = sessionVariable.getConnectorSinkCompressionCodec();
@@ -150,7 +144,6 @@ public class IcebergMergeSink extends DataSink {
         strBuilder.append("\n");
         strBuilder.append(prefix + "  TABLE: " + tableIdentifier + "\n");
         strBuilder.append(prefix + "  LOCATION: " + tableLocation + "\n");
-        strBuilder.append(prefix + "  DELETE LOCATION: " + deleteLocation + "\n");
         strBuilder.append(prefix + "  TUPLE ID: " + desc.getId() + "\n");
         return strBuilder.toString();
     }

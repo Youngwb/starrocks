@@ -108,6 +108,7 @@ import com.starrocks.mysql.MysqlEofPacket;
 import com.starrocks.mysql.MysqlSerializer;
 import com.starrocks.persist.CreateInsertOverwriteJobLog;
 import com.starrocks.persist.gson.GsonUtils;
+import com.starrocks.planner.DataSink;
 import com.starrocks.planner.FileScanNode;
 import com.starrocks.planner.HiveTableSink;
 import com.starrocks.planner.IcebergScanNode;
@@ -2840,15 +2841,17 @@ public class StmtExecutor {
                     }
                 }
 
-                IcebergTableSink sink = (IcebergTableSink) execPlan.getFragments().get(0).getSink();
+                DataSink sink = execPlan.getFragments().get(0).getSink();
+                String targetBranch = sink instanceof IcebergTableSink ?
+                        ((IcebergTableSink) sink).getTargetBranch() : null;
                 IcebergMetadata.IcebergSinkExtra extra = null;
                 extra = fillRewriteFiles(stmt, execPlan, commitInfos, extra);
                 if (context.getSkipFinishSink()) {
                     context.getFinishSinkHandler()
-                            .finish(catalogName, dbName, tableName, commitInfos, sink.getTargetBranch(), (Object) extra);
+                            .finish(catalogName, dbName, tableName, commitInfos, targetBranch, (Object) extra);
                 } else {
                     context.getGlobalStateMgr().getMetadataMgr().finishSink(
-                            catalogName, dbName, tableName, commitInfos, sink.getTargetBranch(), (Object) extra);
+                            catalogName, dbName, tableName, commitInfos, targetBranch, (Object) extra);
                 }
                 txnStatus = TransactionStatus.VISIBLE;
                 label = "FAKE_ICEBERG_SINK_LABEL";
