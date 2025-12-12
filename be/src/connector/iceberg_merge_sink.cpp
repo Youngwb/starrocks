@@ -83,10 +83,21 @@ Status IcebergMergeSink::add(const ChunkPtr& chunk) {
     if (num_rows == 0) {
         return Status::OK();
     }
+
+    // Project chunk to only keep file_path (col 0) and pos (col 1)
+    // Remove all other columns to match the column evaluators we set up
+    ChunkPtr projected_chunk = chunk;
+    if (chunk->num_columns() > 2) {
+        projected_chunk = chunk->clone_empty_with_slot();
+        // Append only the first 2 columns (file_path and pos)
+        projected_chunk->append_column(chunk->get_column_by_index(0), 0);
+        projected_chunk->append_column(chunk->get_column_by_index(1), 1);
+    }
+
     std::string partition = DEFAULT_PARTITION;
     bool partitioned = !_partition_column_names.empty();
     std::vector<int8_t> partition_field_null_list;
-    
+
     LOG(INFO) << "partition columns size: " << _partition_column_names.size();
     for (auto partiton_col : _partition_column_names) {
         LOG(INFO) << "partition column: " << partiton_col;
@@ -95,15 +106,15 @@ Status IcebergMergeSink::add(const ChunkPtr& chunk) {
     if (partitioned) {
         ASSIGN_OR_RETURN(partition, HiveUtils::iceberg_make_partition_name(
                                             _partition_column_names, _partition_column_evaluators,
-                                            _transform_exprs, chunk.get(), _support_null_partition,
+                                            _transform_exprs, projected_chunk.get(), _support_null_partition,
                                             partition_field_null_list));
     }
-    
+
     LOG(INFO) << "IcebergMergeSink: partition=" << partition;
-    LOG(INFO) << "chunk debug columns: " << chunk->debug_columns();
-    LOG(INFO) << "chunk row 0" << chunk->debug_row(0);
+    LOG(INFO) << "projected_chunk debug columns: " << projected_chunk->debug_columns();
+    LOG(INFO) << "projected_chunk row 0" << projected_chunk->debug_row(0);
     // Write the chunk to delete file
-    RETURN_IF_ERROR(ConnectorChunkSink::write_partition_chunk(partition, partition_field_null_list, chunk));
+    RETURN_IF_ERROR(ConnectorChunkSink::write_partition_chunk(partition, partition_field_null_list, projected_chunk));
     return Status::OK();
 }
 
