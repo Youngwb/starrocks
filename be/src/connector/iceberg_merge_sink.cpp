@@ -25,6 +25,7 @@
 #include "formats/column_evaluator.h"
 #include "formats/parquet/parquet_file_writer.h"
 #include "formats/utils.h"
+#include "gutil/strings/fastmem.h"
 #include "runtime/descriptor_helper.h"
 #include "runtime/descriptors.h"
 #include "storage/chunk_helper.h"
@@ -163,8 +164,8 @@ StatusOr<std::unique_ptr<ConnectorChunkSink>> IcebergMergeSinkProvider::create_c
     std::unique_ptr<PartitionChunkWriterFactory> partition_chunk_writer_factory;
 
     // Create a custom tuple descriptor with only file_path and pos columns
-    // This is needed because the original tuple_desc has all table columns,
-    // but we only want to write 2 columns to delete files
+    // Use DescriptorTbl::create to properly create tuple and slot descriptors
+    // since TupleDescriptor::add_slot is private
     TSlotDescriptorBuilder slot_builder;
     TTupleDescriptorBuilder tuple_builder;
 
@@ -191,14 +192,16 @@ StatusOr<std::unique_ptr<ConnectorChunkSink>> IcebergMergeSinkProvider::create_c
     tuple_builder.build(&desc_tbl_builder);
     TDescriptorTable t_desc_tbl = desc_tbl_builder.desc_tbl();
 
-    // Get the created tuple descriptor
-    TupleDescriptor* delete_tuple_desc = runtime_state->obj_pool()->add(
-        new TupleDescriptor(t_desc_tbl.tupleDescriptors[0]));
+    // Use DescriptorTbl::create to properly create the tuple and slot descriptors
+    // This handles the private add_slot method for us
+    DescriptorTbl* desc_tbl = nullptr;
+    RETURN_IF_ERROR(DescriptorTbl::create(runtime_state, runtime_state->obj_pool(), t_desc_tbl,
+                                                        &desc_tbl, config::vector_chunk_size));
 
-    // Add slot descriptors
-    for (const auto& t_slot : t_desc_tbl.slotDescriptors) {
-        delete_tuple_desc->add_slot(runtime_state->obj_pool()->add(new SlotDescriptor(t_slot)));
-    }
+    // Extract the tuple descriptor we just created (it will be the first one)
+    TupleDescriptor* delete_tuple_desc = desc_tbl->get_tuple_descriptor(0);
+    DCHECK(delete_tuple_desc != nullptr);
+    DCHECK_EQ(delete_tuple_desc->slots().size(), 2);
 
     auto writer_ctx = std::make_shared<SpillPartitionChunkWriterContext>(SpillPartitionChunkWriterContext{
             {file_writer_factory, location_provider, ctx->max_file_size, ctx->partition_column_names.empty()},
