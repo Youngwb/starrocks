@@ -83,11 +83,11 @@ public:
                      std::unique_ptr<PartitionChunkWriterFactory> partition_chunk_writer_factory,
                      RuntimeState* state);
     ~IcebergMergeSink() override = default;
-    
+
     void callback_on_commit(const CommitResult& result) override;
 
     Status add(const ChunkPtr& chunk) override;
-    
+
 private:
     std::vector<std::string> _transform_exprs;
 };

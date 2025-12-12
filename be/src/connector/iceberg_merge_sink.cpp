@@ -25,6 +25,8 @@
 #include "formats/column_evaluator.h"
 #include "formats/parquet/parquet_file_writer.h"
 #include "formats/utils.h"
+#include "runtime/descriptors.h"
+#include "storage/chunk_helper.h"
 #include "util/url_coding.h"
 #include "utils.h"
 
@@ -100,21 +102,11 @@ Status IcebergMergeSink::add(const ChunkPtr& chunk) {
                                             partition_field_null_list));
     }
 
-    // Project chunk to only keep file_path (col 0) and pos (col 1)
-    // Remove all other columns to match the column evaluators we set up
-    ChunkPtr projected_chunk = chunk;
-    if (chunk->num_columns() > 2) {
-        projected_chunk = chunk->clone_empty_with_slot();
-        // Append only the first 2 columns (file_path and pos)
-        projected_chunk->append_column(chunk->get_column_by_index(0), 0);
-        projected_chunk->append_column(chunk->get_column_by_index(1), 1);
-    }
-
     LOG(INFO) << "IcebergMergeSink: partition=" << partition;
-    LOG(INFO) << "projected_chunk debug columns: " << projected_chunk->debug_columns();
-    // OG(INFO) << "projected_chunk row 0" << projected_chunk->debug_row(0);
+    LOG(INFO) << "chunk debug columns: " << chunk->debug_columns();
     // Write the chunk to delete file
-    RETURN_IF_ERROR(ConnectorChunkSink::write_partition_chunk(partition, partition_field_null_list, projected_chunk));
+    // The custom tuple descriptor in SpillPartitionChunkWriter will handle projection
+    RETURN_IF_ERROR(ConnectorChunkSink::write_partition_chunk(partition, partition_field_null_list, chunk));
     return Status::OK();
 }
 
@@ -168,12 +160,42 @@ StatusOr<std::unique_ptr<ConnectorChunkSink>> IcebergMergeSinkProvider::create_c
 
     // Create partition chunk writer factory
     std::unique_ptr<PartitionChunkWriterFactory> partition_chunk_writer_factory;
-    
+
+    // Create a custom tuple descriptor with only file_path and pos columns
+    // This is needed because the original tuple_desc has all table columns,
+    // but we only want to write 2 columns to delete files
+    TTupleDescriptor t_tuple_desc;
+    t_tuple_desc.__set_id(ctx->tuple_desc_id);
+    t_tuple_desc.__set_byteSize(16);  // Approximate size
+
+    // Create TSlotDescriptors for file_path (STRING) and pos (BIGINT)
+    TSlotDescriptor t_file_path_slot;
+    t_file_path_slot.__set_id(1);
+    t_file_path_slot.__set_parent(ctx->tuple_desc_id);
+    t_file_path_slot.__set_slotType(TypeDescriptor::create_varchar_type(TypeDescriptor::MAX_VARCHAR_LENGTH).to_thrift());
+    t_file_path_slot.__set_slotIdx(0);
+    t_file_path_slot.__set_isMaterialized(true);
+    t_file_path_slot.__set_colName("file_path");
+
+    TSlotDescriptor t_pos_slot;
+    t_pos_slot.__set_id(2);
+    t_pos_slot.__set_parent(ctx->tuple_desc_id);
+    t_pos_slot.__set_slotType(TypeDescriptor(TYPE_BIGINT).to_thrift());
+    t_pos_slot.__set_slotIdx(1);
+    t_pos_slot.__set_isMaterialized(true);
+    t_pos_slot.__set_colName("pos");
+
+    // Add slots to tuple descriptor
+    t_tuple_desc.__set_slotDescriptors({t_file_path_slot, t_pos_slot});
+
+    // Create TupleDescriptor from thrift struct
+    TupleDescriptor* delete_tuple_desc = runtime_state->obj_pool()->add(new TupleDescriptor(t_tuple_desc));
+
     auto writer_ctx = std::make_shared<SpillPartitionChunkWriterContext>(SpillPartitionChunkWriterContext{
             {file_writer_factory, location_provider, ctx->max_file_size, ctx->partition_column_names.empty()},
             fs,
             ctx->fragment_context,
-            runtime_state->desc_tbl().get_tuple_descriptor(ctx->tuple_desc_id),
+            delete_tuple_desc,
             column_evaluators,
             sort_ordering});
     partition_chunk_writer_factory = std::make_unique<SpillPartitionChunkWriterFactory>(writer_ctx);
