@@ -135,9 +135,9 @@ StatusOr<std::unique_ptr<ConnectorChunkSink>> IcebergMergeSinkProvider::create_c
 
     std::vector<formats::FileColumnId> file_column_ids(column_names.size());
     // file_path column (index 0)
-    file_column_ids[0].field_id = 1;  
+    file_column_ids[0].field_id = INT32_MAX - 101;  
     // pos column (index 1)  
-    file_column_ids[1].field_id = 2; 
+    file_column_ids[1].field_id = INT32_MAX - 102; 
 
     // Create Parquet writer factory for delete files
     auto file_writer_factory = std::make_shared<formats::ParquetFileWriterFactory>(
