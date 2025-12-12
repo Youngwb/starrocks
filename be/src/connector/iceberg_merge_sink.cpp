@@ -25,6 +25,7 @@
 #include "formats/column_evaluator.h"
 #include "formats/parquet/parquet_file_writer.h"
 #include "formats/utils.h"
+#include "runtime/descriptor_helper.h"
 #include "runtime/descriptors.h"
 #include "storage/chunk_helper.h"
 #include "util/url_coding.h"
@@ -164,32 +165,40 @@ StatusOr<std::unique_ptr<ConnectorChunkSink>> IcebergMergeSinkProvider::create_c
     // Create a custom tuple descriptor with only file_path and pos columns
     // This is needed because the original tuple_desc has all table columns,
     // but we only want to write 2 columns to delete files
-    TTupleDescriptor t_tuple_desc;
-    t_tuple_desc.__set_id(ctx->tuple_desc_id);
-    t_tuple_desc.__set_byteSize(16);  // Approximate size
+    TSlotDescriptorBuilder slot_builder;
+    TTupleDescriptorBuilder tuple_builder;
 
-    // Create TSlotDescriptors for file_path (STRING) and pos (BIGINT)
-    TSlotDescriptor t_file_path_slot;
-    t_file_path_slot.__set_id(1);
-    t_file_path_slot.__set_parent(ctx->tuple_desc_id);
-    t_file_path_slot.__set_slotType(TypeDescriptor::create_varchar_type(TypeDescriptor::MAX_VARCHAR_LENGTH).to_thrift());
-    t_file_path_slot.__set_slotIdx(0);
-    t_file_path_slot.__set_isMaterialized(true);
-    t_file_path_slot.__set_colName("file_path");
+    // Add file_path column (STRING/VARCHAR)
+    tuple_builder.add_slot(
+        slot_builder.id(1)
+            .type(TYPE_VARCHAR)
+            .nullable(true)
+            .is_materialized(true)
+            .column_name("file_path")
+            .build());
 
-    TSlotDescriptor t_pos_slot;
-    t_pos_slot.__set_id(2);
-    t_pos_slot.__set_parent(ctx->tuple_desc_id);
-    t_pos_slot.__set_slotType(TypeDescriptor(TYPE_BIGINT).to_thrift());
-    t_pos_slot.__set_slotIdx(1);
-    t_pos_slot.__set_isMaterialized(true);
-    t_pos_slot.__set_colName("pos");
+    // Add pos column (BIGINT)
+    tuple_builder.add_slot(
+        slot_builder.id(2)
+            .type(TYPE_BIGINT)
+            .nullable(true)
+            .is_materialized(true)
+            .column_name("pos")
+            .build());
 
-    // Add slots to tuple descriptor
-    t_tuple_desc.__set_slotDescriptors({t_file_path_slot, t_pos_slot});
+    // Create descriptor table and tuple
+    TDescriptorTableBuilder desc_tbl_builder;
+    tuple_builder.build(&desc_tbl_builder);
+    TDescriptorTable t_desc_tbl = desc_tbl_builder.desc_tbl();
 
-    // Create TupleDescriptor from thrift struct
-    TupleDescriptor* delete_tuple_desc = runtime_state->obj_pool()->add(new TupleDescriptor(t_tuple_desc));
+    // Get the created tuple descriptor
+    TupleDescriptor* delete_tuple_desc = runtime_state->obj_pool()->add(
+        new TupleDescriptor(t_desc_tbl.tupleDescriptors[0]));
+
+    // Add slot descriptors
+    for (const auto& t_slot : t_desc_tbl.slotDescriptors) {
+        delete_tuple_desc->add_slot(runtime_state->obj_pool()->add(new SlotDescriptor(t_slot)));
+    }
 
     auto writer_ctx = std::make_shared<SpillPartitionChunkWriterContext>(SpillPartitionChunkWriterContext{
             {file_writer_factory, location_provider, ctx->max_file_size, ctx->partition_column_names.empty()},
