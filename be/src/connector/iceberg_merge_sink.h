@@ -19,12 +19,14 @@
 #include "column/chunk.h"
 #include "common/status.h"
 #include "connector/connector.h"
+#include "connector/partition_chunk_writer.h"
 #include "formats/file_writer.h"
 
 namespace starrocks {
 class RuntimeState;
 
 namespace connector {
+struct SortOrdering;
 
 // Context for IcebergMergeSink
 // Contains configuration needed to write delete files
@@ -54,6 +56,9 @@ struct IcebergMergeSinkContext : public ConnectorChunkSinkContext {
 
     // Thread pool for async IO
     PriorityThreadPool* executor = nullptr;
+
+    // Sort ordering (required by Iceberg spec: sorted by file_path, then pos)
+    std::shared_ptr<SortOrdering> sort_ordering;
 };
 
 // IcebergMergeSinkProvider creates IcebergMergeSink for writing position delete files

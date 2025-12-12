@@ -18,7 +18,9 @@
 
 #include "column/datum.h"
 #include "connector/async_flush_stream_poller.h"
+#include "connector/partition_chunk_writer.h"
 #include "exec/pipeline/fragment_context.h"
+#include "exec/sorting/sorting.h"
 #include "exprs/expr.h"
 #include "formats/column_evaluator.h"
 #include "formats/parquet/parquet_file_writer.h"
@@ -146,23 +148,24 @@ StatusOr<std::unique_ptr<ConnectorChunkSink>> IcebergMergeSinkProvider::create_c
 
     LOG(INFO) << "partition columns size: " << ctx->partition_column_names.size();
 
+    // Initialize sort ordering for position delete files (required by Iceberg spec)
+    // Sort by: file_path (col 0) ASC, then pos (col 1) ASC
+    ctx->sort_ordering = std::make_shared<SortOrdering>();
+    ctx->sort_ordering->sort_key_idxes = {0, 1};  // file_path, pos
+    ctx->sort_ordering->sort_descs.descs.emplace_back(true, false);   // file_path: ASC, nulls last
+    ctx->sort_ordering->sort_descs.descs.emplace_back(true, false);   // pos: ASC, nulls last
+
     // Create partition chunk writer factory
     std::unique_ptr<PartitionChunkWriterFactory> partition_chunk_writer_factory;
-    if (config::enable_connector_sink_spill) {
-        auto writer_ctx = std::make_shared<SpillPartitionChunkWriterContext>(SpillPartitionChunkWriterContext{
-                {file_writer_factory, location_provider, ctx->max_file_size, ctx->partition_column_names.empty()},
-                fs,
-                ctx->fragment_context,
-                runtime_state->desc_tbl().get_tuple_descriptor(ctx->tuple_desc_id),
-                column_evaluators,
-                nullptr});
-        partition_chunk_writer_factory = std::make_unique<SpillPartitionChunkWriterFactory>(writer_ctx);
-    } else {
-        auto writer_ctx =
-                std::make_shared<BufferPartitionChunkWriterContext>(BufferPartitionChunkWriterContext{
-                        {file_writer_factory, location_provider, ctx->max_file_size, ctx->partition_column_names.empty()}});
-        partition_chunk_writer_factory = std::make_unique<BufferPartitionChunkWriterFactory>(writer_ctx);
-    }
+    
+    auto writer_ctx = std::make_shared<SpillPartitionChunkWriterContext>(SpillPartitionChunkWriterContext{
+            {file_writer_factory, location_provider, ctx->max_file_size, ctx->partition_column_names.empty()},
+            fs,
+            ctx->fragment_context,
+            runtime_state->desc_tbl().get_tuple_descriptor(ctx->tuple_desc_id),
+            column_evaluators,
+            ctx->sort_ordering});
+    partition_chunk_writer_factory = std::make_unique<SpillPartitionChunkWriterFactory>(writer_ctx);
 
     // Create the merge sink
     return std::make_unique<IcebergMergeSink>(ctx->partition_column_names, ctx->transform_exprs,
