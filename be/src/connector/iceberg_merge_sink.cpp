@@ -150,10 +150,10 @@ StatusOr<std::unique_ptr<ConnectorChunkSink>> IcebergMergeSinkProvider::create_c
 
     // Initialize sort ordering for position delete files (required by Iceberg spec)
     // Sort by: file_path (col 0) ASC, then pos (col 1) ASC
-    ctx->sort_ordering = std::make_shared<SortOrdering>();
-    ctx->sort_ordering->sort_key_idxes = {0, 1};  // file_path, pos
-    ctx->sort_ordering->sort_descs.descs.emplace_back(true, false);   // file_path: ASC, nulls last
-    ctx->sort_ordering->sort_descs.descs.emplace_back(true, false);   // pos: ASC, nulls last
+    std::shared_ptr<SortOrdering> sort_ordering = std::make_shared<SortOrdering>();
+    sort_ordering->sort_key_idxes = {0, 1};  // file_path, pos
+    sort_ordering->sort_descs.descs.emplace_back(true, false);   // file_path: ASC, nulls last
+    sort_ordering->sort_descs.descs.emplace_back(true, false);   // pos: ASC, nulls last
 
     // Create partition chunk writer factory
     std::unique_ptr<PartitionChunkWriterFactory> partition_chunk_writer_factory;
@@ -164,7 +164,7 @@ StatusOr<std::unique_ptr<ConnectorChunkSink>> IcebergMergeSinkProvider::create_c
             ctx->fragment_context,
             runtime_state->desc_tbl().get_tuple_descriptor(ctx->tuple_desc_id),
             column_evaluators,
-            ctx->sort_ordering});
+            sort_ordering});
     partition_chunk_writer_factory = std::make_unique<SpillPartitionChunkWriterFactory>(writer_ctx);
 
     // Create the merge sink
