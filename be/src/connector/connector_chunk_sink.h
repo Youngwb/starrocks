@@ -49,7 +49,7 @@ public:
 
     virtual Status add(const ChunkPtr& chunk);
 
-    Status finish();
+    virtual Status finish();
 
     void rollback();
 

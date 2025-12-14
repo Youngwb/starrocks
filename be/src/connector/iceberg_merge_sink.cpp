@@ -116,7 +116,7 @@ Status IcebergMergeSink::add(const ChunkPtr& chunk) {
     // Map: file_path -> row indices
     std::unordered_map<std::string, std::vector<uint32_t>> file_path_to_indices;
     for (int i = 0; i < num_rows; ++i) {
-        auto file_path = file_path_column->get_slice(i).to_string();
+        auto file_path = file_path_column->get(i).get_slice().to_string();
         file_path_to_indices[file_path].push_back(i);
     }
 
