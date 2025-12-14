@@ -14,6 +14,7 @@
 
 #include "connector/iceberg_merge_sink.h"
 
+#include <algorithm>
 #include <future>
 
 #include "column/datum.h"
@@ -106,11 +107,50 @@ Status IcebergMergeSink::add(const ChunkPtr& chunk) {
 
     LOG(INFO) << "IcebergMergeSink: partition=" << partition;
     LOG(INFO) << "chunk debug columns: " << chunk->debug_columns();
-    // Write the chunk to delete file
-    // The custom tuple descriptor in SpillPartitionChunkWriter will handle projection
-    RETURN_IF_ERROR(ConnectorChunkSink::write_partition_chunk(partition, partition_field_null_list, chunk));
+
+    // Extract file_path column (column 0)
+    DCHECK_GE(chunk->num_columns(), 2) << "Chunk must have at least 2 columns (file_path, pos)";
+    auto file_path_column = chunk->get_column_by_index(0);
+
+    // Group rows by file_path to create file-level delete files
+    // Map: file_path -> row indices
+    std::unordered_map<std::string, std::vector<uint32_t>> file_path_to_indices;
+    for (int i = 0; i < num_rows; ++i) {
+        auto file_path = file_path_column->get_slice(i).to_string();
+        file_path_to_indices[file_path].push_back(i);
+    }
+
+    // Write separate delete files for each file_path
+    for (auto& [file_path, indices] : file_path_to_indices) {
+        // Create a chunk containing only rows for this file_path
+        ChunkPtr file_chunk = chunk->clone_empty_with_slot();
+        file_chunk->append_selective(*chunk, indices.data(), 0, indices.size());
+
+        LOG(INFO) << "Writing delete file for data file: " << file_path
+                  << " with " << indices.size() << " delete rows";
+
+        // Write using file-level writer for this (partition, file_path)
+        RETURN_IF_ERROR(write_file_level_chunk(partition, partition_field_null_list, file_chunk, file_path));
+    }
+
     return Status::OK();
 }
+
+Status IcebergMergeSink::finish() {
+    // Flush and finish all file-level writers
+    for (auto& [key, writer] : _file_writers) {
+        RETURN_IF_ERROR(writer->flush());
+    }
+    for (auto& [key, writer] : _file_writers) {
+        RETURN_IF_ERROR(writer->wait_flush());
+    }
+    for (auto& [key, writer] : _file_writers) {
+        RETURN_IF_ERROR(writer->finish());
+    }
+    _file_writers.clear();
+    return Status::OK();
+}
+
 
 // IcebergMergeSinkProvider implementation
 StatusOr<std::unique_ptr<ConnectorChunkSink>> IcebergMergeSinkProvider::create_chunk_sink(
@@ -216,6 +256,33 @@ StatusOr<std::unique_ptr<ConnectorChunkSink>> IcebergMergeSinkProvider::create_c
     return std::make_unique<IcebergMergeSink>(ctx->partition_column_names, ctx->transform_exprs,
                                               ColumnEvaluator::clone(ctx->partition_evaluators),
                                               std::move(partition_chunk_writer_factory), runtime_state);
+}
+
+Status IcebergMergeSink::write_file_level_chunk(const std::string& partition,
+                                                const std::vector<int8_t>& partition_field_null_list,
+                                                const ChunkPtr& chunk,
+                                                const std::string& file_path) {
+    // Key: (partition, file_path)
+    auto key = std::make_pair(partition, file_path);
+
+    auto it = _file_writers.find(key);
+    if (it != _file_writers.end()) {
+        return it->second->write(chunk);
+    }
+
+    // Create new writer for this (partition, file_path)
+    auto writer = _partition_chunk_writer_factory->create(partition, partition_field_null_list);
+
+    auto commit_callback = [this](const CommitResult& r) { this->callback_on_commit(r); };
+    auto error_handler = [this](const Status& s) { this->set_status(s); };
+    writer->set_commit_callback(commit_callback);
+    writer->set_error_handler(error_handler);
+    writer->set_io_poller(_io_poller);
+
+    RETURN_IF_ERROR(writer->init());
+
+    auto result = _file_writers.emplace(key, std::move(writer));
+    return result.first->second->write(chunk);
 }
 
 } // namespace starrocks::connector
