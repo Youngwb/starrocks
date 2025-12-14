@@ -94,7 +94,7 @@ private:
     std::vector<std::string> _transform_exprs;
 
     // Map: (partition, file_path) -> writer for file-level delete files
-    std::map<std::pair<std::string, std::string>, std::unique_ptr<PartitionChunkWriter>> _file_writers;
+    std::map<std::pair<std::string, std::string>, PartitionChunkWriterPtr> _file_writers;
 };
 
 } // namespace connector

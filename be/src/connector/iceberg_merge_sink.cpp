@@ -281,8 +281,8 @@ Status IcebergMergeSink::write_file_level_chunk(const std::string& partition,
 
     RETURN_IF_ERROR(writer->init());
 
-    auto result = _file_writers.emplace(key, std::move(writer));
-    return result.first->second->write(chunk);
+    _file_writers[key] = writer;
+    return writer->write(chunk);
 }
 
 } // namespace starrocks::connector
