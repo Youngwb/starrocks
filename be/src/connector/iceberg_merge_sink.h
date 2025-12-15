@@ -59,6 +59,12 @@ struct IcebergMergeSinkContext : public ConnectorChunkSinkContext {
 
     // Sort ordering (required by Iceberg spec: sorted by file_path, then pos)
     std::shared_ptr<SortOrdering> sort_ordering;
+
+    // Output expressions from FE (to find column slots)
+    std::vector<TExpr> output_exprs;
+
+    // Column name to slot_id mapping (e.g., "file_path" -> slot_id)
+    std::unordered_map<std::string, SlotId> column_slot_map;
 };
 
 // IcebergMergeSinkProvider creates IcebergMergeSink for writing position delete files
@@ -82,7 +88,7 @@ public:
                      std::vector<std::unique_ptr<ColumnEvaluator>>&& partition_column_evaluators,
                      std::unique_ptr<PartitionChunkWriterFactory> partition_chunk_writer_factory,
                      RuntimeState* state,
-                     TupleId tuple_desc_id);
+                     const std::unordered_map<std::string, SlotId>& column_slot_map);
     ~IcebergMergeSink() override = default;
 
     void callback_on_commit(const CommitResult& result) override;
@@ -94,8 +100,11 @@ public:
 private:
     std::vector<std::string> _transform_exprs;
 
-    TupleId _tuple_desc_id;
-    RuntimeState* _state;
+    // Column name to slot_id mapping (e.g., "file_path" -> slot_id, "pos" -> slot_id)
+    std::unordered_map<std::string, SlotId> _column_slot_map;
+
+    // Runtime state (for metrics and commit info)
+    RuntimeState* _state = nullptr;
 
     // Map: (partition, file_path) -> writer for file-level delete files
     std::map<std::pair<std::string, std::string>, PartitionChunkWriterPtr> _file_writers;

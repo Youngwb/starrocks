@@ -96,6 +96,9 @@ Status IcebergTableSink::decompose_to_pipeline(pipeline::OpFactories prev_operat
         merge_sink_ctx->column_evaluators = ColumnExprEvaluator::from_exprs(this->get_output_expr(), runtime_state);
         merge_sink_ctx->transform_exprs = iceberg_table_desc->get_transform_exprs();
 
+        // Pass output expressions to find file_path column slot
+        merge_sink_ctx->output_exprs = this->get_output_expr();
+
         // Configure partition columns if table is partitioned
         merge_sink_ctx->partition_column_names = iceberg_table_desc->partition_column_names();
         LOG(INFO) << "Partition columns size: " << merge_sink_ctx->partition_column_names.size();

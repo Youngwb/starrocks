@@ -42,11 +42,11 @@ IcebergMergeSink::IcebergMergeSink(std::vector<std::string> partition_columns,
                                    std::vector<std::unique_ptr<ColumnEvaluator>>&& partition_column_evaluators,
                                    std::unique_ptr<PartitionChunkWriterFactory> partition_chunk_writer_factory,
                                    RuntimeState* state,
-                                   TupleId tuple_desc_id)
+                                   const std::unordered_map<std::string, SlotId>& column_slot_map)
         : ConnectorChunkSink(std::move(partition_columns), std::move(partition_column_evaluators),
                              std::move(partition_chunk_writer_factory), state, true),
           _transform_exprs(std::move(transform_exprs)),
-          _tuple_desc_id(tuple_desc_id),
+          _column_slot_map(column_slot_map),
           _state(state) {}
 
 void IcebergMergeSink::callback_on_commit(const CommitResult& result) {
@@ -113,37 +113,24 @@ Status IcebergMergeSink::add(const ChunkPtr& chunk) {
     LOG(INFO) << "chunk debug columns: " << chunk->debug_columns();
     LOG(INFO) << "chunk num columns: " << chunk->num_columns();
 
-    DCHECK_GE(chunk->num_columns(), 2) << "Chunk must have at least 2 columns (file_path, pos)";
-
-    // Use tuple descriptor to find file_path column
-    LOG(INFO) << "tuple_desc_id: " << _tuple_desc_id;
-    const TupleDescriptor* tuple_desc = _state->desc_tbl().get_tuple_descriptor(_tuple_desc_id);
-    if (tuple_desc == nullptr) {
-        return Status::InternalError(fmt::format("Failed to find tuple descriptor with id {}", _tuple_desc_id));
-    }
-    LOG(INFO) << "tuple_desc: " << tuple_desc->debug_string();
-
-    // Find file_path column slot (column name is "file_path")
-    const SlotDescriptor* file_path_slot = nullptr;
-    for (auto* slot : tuple_desc->slots()) {
-        LOG(INFO) << "slot: " << slot->debug_string();
-        if (slot->col_name() == "$file_path") {
-            file_path_slot = slot;
-            break;
-        }
+    // Find file_path column slot_id from the mapping
+    SlotId file_path_slot_id = -1;
+    auto it = _column_slot_map.find("$file_path");
+    if (it != _column_slot_map.end()) {
+        file_path_slot_id = it->second;
     }
 
-    if (file_path_slot == nullptr) {
-        return Status::InternalError("Could not find file_path column in tuple descriptor");
+    if (file_path_slot_id == -1) {
+        return Status::InternalError("Could not find file_path column in column_slot_map");
     }
 
-    LOG(INFO) << "file_path_slot: " << file_path_slot->debug_string();
+    LOG(INFO) << "file_path_slot_id: " << file_path_slot_id;
 
-    // Use slot_id to get the column directly from chunk
-    ColumnPtr file_path_column = chunk->get_column_by_slot_id(file_path_slot->id());
+    // Get file_path column directly using slot_id (from FE)
+    ColumnPtr file_path_column = chunk->get_column_by_slot_id(file_path_slot_id);
     if (file_path_column == nullptr) {
         return Status::InternalError(fmt::format("Could not find file_path column with slot_id {} in chunk",
-                                                  file_path_slot->id()));
+                                                  file_path_slot_id));
     }
 
     // If it's a nullable column, get the data column
@@ -210,6 +197,36 @@ StatusOr<std::unique_ptr<ConnectorChunkSink>> IcebergMergeSinkProvider::create_c
     }
 
     auto runtime_state = ctx->fragment_context->runtime_state();
+
+    TupleDescriptor* tuple_desc = runtime_state->desc_tbl().get_tuple_descriptor(ctx->tuple_desc_id);
+    if (tuple_desc == nullptr) {
+        return Status::InternalError(fmt::format("Failed to find tuple descriptor with id {}", ctx->tuple_desc_id));
+    }
+    LOG(INFO) << "tuple_desc: " << tuple_desc->debug_string();
+    DCHECK(tuple_desc->slots().size() == ctx->output_exprs.size());
+
+    // Build column name to slot_id mapping from output expressions
+    // For DELETE operations, we expect columns: file_path, pos, (optional) op
+    for (size_t i = 0; i < tuple_desc->slots().size() && i < ctx->output_exprs.size(); ++i) {
+        const auto* slot = tuple_desc->slots()[i];
+        const auto& expr = ctx->output_exprs[i];
+
+        // Check if this expression contains a slot reference (should be a direct slot reference for delete columns)
+        for (const auto& node : expr.nodes) {
+            if (node.node_type == TExprNodeType::SLOT_REF) {
+                // Extract column name from slot descriptor
+                std::string col_name = slot->col_name();
+                SlotId slot_id = node.slot_ref.slot_id;
+
+                ctx->column_slot_map[col_name] = slot_id;
+                LOG(INFO) << "Mapped column '" << col_name << "' to slot_id " << slot_id;
+                break;
+            }
+        }
+    }
+
+    // Verify we found the required columns
+    LOG(INFO) << "Built column_slot_map with " << ctx->column_slot_map.size() << " entries";
 
     // Create filesystem
     std::shared_ptr<FileSystem> fs = FileSystem::CreateUniqueFromString(ctx->path, FSOptions(&ctx->cloud_configuration))
@@ -301,18 +318,11 @@ StatusOr<std::unique_ptr<ConnectorChunkSink>> IcebergMergeSinkProvider::create_c
             sort_ordering});
     partition_chunk_writer_factory = std::make_unique<SpillPartitionChunkWriterFactory>(writer_ctx);
     
-    LOG(INFO) << "Creating IcebergMergeSink : " << ctx->tuple_desc_id;
-    const TupleDescriptor* tuple_desc = runtime_state->desc_tbl().get_tuple_descriptor(ctx->tuple_desc_id);
-    if (tuple_desc == nullptr) {
-        return Status::InternalError(fmt::format("Failed to find tuple descriptor with id {}", ctx->tuple_desc_id));
-    }
-    LOG(INFO) << "tuple_desc: " << tuple_desc->debug_string();
-
     // Create the merge sink
     return std::make_unique<IcebergMergeSink>(ctx->partition_column_names, ctx->transform_exprs,
                                               ColumnEvaluator::clone(ctx->partition_evaluators),
                                               std::move(partition_chunk_writer_factory), runtime_state,
-                                              ctx->tuple_desc_id);
+                                              ctx->column_slot_map);
 }
 
 Status IcebergMergeSink::write_file_level_chunk(const std::string& partition,
