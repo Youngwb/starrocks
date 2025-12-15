@@ -81,7 +81,8 @@ public:
                      std::vector<std::string> transform_exprs,
                      std::vector<std::unique_ptr<ColumnEvaluator>>&& partition_column_evaluators,
                      std::unique_ptr<PartitionChunkWriterFactory> partition_chunk_writer_factory,
-                     RuntimeState* state);
+                     RuntimeState* state,
+                     TupleId tuple_desc_id);
     ~IcebergMergeSink() override = default;
 
     void callback_on_commit(const CommitResult& result) override;
@@ -92,6 +93,9 @@ public:
 
 private:
     std::vector<std::string> _transform_exprs;
+
+    TupleId _tuple_desc_id;
+    RuntimeState* _state;
 
     // Map: (partition, file_path) -> writer for file-level delete files
     std::map<std::pair<std::string, std::string>, PartitionChunkWriterPtr> _file_writers;

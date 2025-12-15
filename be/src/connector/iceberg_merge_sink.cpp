@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <future>
+#include <fmt/format.h>
 
 #include "column/datum.h"
 #include "connector/async_flush_stream_poller.h"
@@ -40,10 +41,13 @@ IcebergMergeSink::IcebergMergeSink(std::vector<std::string> partition_columns,
                                    std::vector<std::string> transform_exprs,
                                    std::vector<std::unique_ptr<ColumnEvaluator>>&& partition_column_evaluators,
                                    std::unique_ptr<PartitionChunkWriterFactory> partition_chunk_writer_factory,
-                                   RuntimeState* state)
+                                   RuntimeState* state,
+                                   TupleId tuple_desc_id)
         : ConnectorChunkSink(std::move(partition_columns), std::move(partition_column_evaluators),
                              std::move(partition_chunk_writer_factory), state, true),
-          _transform_exprs(std::move(transform_exprs)) {}
+          _transform_exprs(std::move(transform_exprs)),
+          _tuple_desc_id(tuple_desc_id),
+          _state(state) {}
 
 void IcebergMergeSink::callback_on_commit(const CommitResult& result) {
     push_rollback_action(std::move(result.rollback_action));
@@ -107,10 +111,35 @@ Status IcebergMergeSink::add(const ChunkPtr& chunk) {
 
     LOG(INFO) << "IcebergMergeSink: partition=" << partition;
     LOG(INFO) << "chunk debug columns: " << chunk->debug_columns();
+    LOG(INFO) << "chunk num columns: " << chunk->num_columns();
 
-    // Extract file_path column (column 0)
     DCHECK_GE(chunk->num_columns(), 2) << "Chunk must have at least 2 columns (file_path, pos)";
-    auto file_path_column = chunk->get_column_by_index(0);
+
+    // Use tuple descriptor to find file_path column
+    const TupleDescriptor* tuple_desc = state->desc_tbl().get_tuple_descriptor(_tuple_desc_id);
+    if (tuple_desc == nullptr) {
+        return Status::InternalError(fmt::format("Failed to find tuple descriptor with id {}", _tuple_desc_id));
+    }
+
+    // Find file_path column slot (column name is "file_path")
+    const SlotDescriptor* file_path_slot = nullptr;
+    for (auto* slot : tuple_desc->slots()) {
+        if (slot->col_name() == "$file_path") {
+            file_path_slot = slot;
+            break;
+        }
+    }
+
+    if (file_path_slot == nullptr) {
+        return Status::InternalError("Could not find file_path column in tuple descriptor");
+    }
+
+    // Use slot_id to get the column directly from chunk
+    ColumnPtr file_path_column = chunk->get_column_by_slot_id(file_path_slot->id());
+    if (file_path_column == nullptr) {
+        return Status::InternalError(fmt::format("Could not find file_path column with slot_id {} in chunk",
+                                                  file_path_slot->id()));
+    }
 
     // If it's a nullable column, get the data column
     Column* data_column = file_path_column.get();
@@ -119,7 +148,7 @@ Status IcebergMergeSink::add(const ChunkPtr& chunk) {
         data_column = nullable_column->data_column().get();
     }
 
-    // Verify the data column is a BinaryColumn (should be, since file_path is VARCHAR)
+    // Verify the data column is a BinaryColumn
     auto* binary_column = down_cast<BinaryColumn*>(data_column);
 
     // Group rows by file_path to create file-level delete files
@@ -270,7 +299,8 @@ StatusOr<std::unique_ptr<ConnectorChunkSink>> IcebergMergeSinkProvider::create_c
     // Create the merge sink
     return std::make_unique<IcebergMergeSink>(ctx->partition_column_names, ctx->transform_exprs,
                                               ColumnEvaluator::clone(ctx->partition_evaluators),
-                                              std::move(partition_chunk_writer_factory), runtime_state);
+                                              std::move(partition_chunk_writer_factory), runtime_state,
+                                              ctx->tuple_desc_id);
 }
 
 Status IcebergMergeSink::write_file_level_chunk(const std::string& partition,
