@@ -99,6 +99,11 @@ private:
 
     // Map: (partition, file_path) -> writer for file-level delete files
     std::map<std::pair<std::string, std::string>, PartitionChunkWriterPtr> _file_writers;
+
+    Status write_file_level_chunk(const std::string& partition,
+                                  const std::vector<int8_t>& partition_field_null_list,
+                                  const ChunkPtr& chunk,
+                                  const std::string& file_path);
 };
 
 } // namespace connector

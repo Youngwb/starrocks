@@ -116,14 +116,17 @@ Status IcebergMergeSink::add(const ChunkPtr& chunk) {
     DCHECK_GE(chunk->num_columns(), 2) << "Chunk must have at least 2 columns (file_path, pos)";
 
     // Use tuple descriptor to find file_path column
-    const TupleDescriptor* tuple_desc = state->desc_tbl().get_tuple_descriptor(_tuple_desc_id);
+    LOG(INFO) << "tuple_desc_id: " << _tuple_desc_id;
+    const TupleDescriptor* tuple_desc = _state->desc_tbl().get_tuple_descriptor(_tuple_desc_id);
     if (tuple_desc == nullptr) {
         return Status::InternalError(fmt::format("Failed to find tuple descriptor with id {}", _tuple_desc_id));
     }
+    LOG(INFO) << "tuple_desc: " << tuple_desc->debug_string();
 
     // Find file_path column slot (column name is "file_path")
     const SlotDescriptor* file_path_slot = nullptr;
     for (auto* slot : tuple_desc->slots()) {
+        LOG(INFO) << "slot: " << slot->debug_string();
         if (slot->col_name() == "$file_path") {
             file_path_slot = slot;
             break;
@@ -133,6 +136,8 @@ Status IcebergMergeSink::add(const ChunkPtr& chunk) {
     if (file_path_slot == nullptr) {
         return Status::InternalError("Could not find file_path column in tuple descriptor");
     }
+
+    LOG(INFO) << "file_path_slot: " << file_path_slot->debug_string();
 
     // Use slot_id to get the column directly from chunk
     ColumnPtr file_path_column = chunk->get_column_by_slot_id(file_path_slot->id());
@@ -295,6 +300,13 @@ StatusOr<std::unique_ptr<ConnectorChunkSink>> IcebergMergeSinkProvider::create_c
             column_evaluators,
             sort_ordering});
     partition_chunk_writer_factory = std::make_unique<SpillPartitionChunkWriterFactory>(writer_ctx);
+    
+    LOG(INFO) << "Creating IcebergMergeSink : " << ctx->tuple_desc_id;
+    const TupleDescriptor* tuple_desc = runtime_state->desc_tbl().get_tuple_descriptor(ctx->tuple_desc_id);
+    if (tuple_desc == nullptr) {
+        return Status::InternalError(fmt::format("Failed to find tuple descriptor with id {}", ctx->tuple_desc_id));
+    }
+    LOG(INFO) << "tuple_desc: " << tuple_desc->debug_string();
 
     // Create the merge sink
     return std::make_unique<IcebergMergeSink>(ctx->partition_column_names, ctx->transform_exprs,
