@@ -112,17 +112,26 @@ Status IcebergMergeSink::add(const ChunkPtr& chunk) {
     DCHECK_GE(chunk->num_columns(), 2) << "Chunk must have at least 2 columns (file_path, pos)";
     auto file_path_column = chunk->get_column_by_index(0);
 
+    // If it's a nullable column, get the data column
+    Column* data_column = file_path_column.get();
+    if (file_path_column->is_nullable()) {
+        auto* nullable_column = down_cast<NullableColumn*>(file_path_column.get());
+        data_column = nullable_column->data_column().get();
+    }
+
+    // Verify the data column is a BinaryColumn (should be, since file_path is VARCHAR)
+    auto* binary_column = down_cast<BinaryColumn*>(data_column);
+
     // Group rows by file_path to create file-level delete files
     // Map: file_path -> row indices
     std::unordered_map<std::string, std::vector<uint32_t>> file_path_to_indices;
     for (int i = 0; i < num_rows; ++i) {
-        auto datum = file_path_column->get(i);
         // Handle NULL values - skip them as they don't reference any file
-        if (datum.is_null()) {
+        if (file_path_column->is_null(i)) {
             LOG(WARNING) << "Encountered NULL file_path at row " << i << ", skipping";
             continue;
         }
-        auto file_path = datum.get_slice().to_string();
+        auto file_path = binary_column->get_slice(i).to_string();
         file_path_to_indices[file_path].push_back(i);
     }
 
