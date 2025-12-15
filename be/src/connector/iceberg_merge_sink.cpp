@@ -116,7 +116,13 @@ Status IcebergMergeSink::add(const ChunkPtr& chunk) {
     // Map: file_path -> row indices
     std::unordered_map<std::string, std::vector<uint32_t>> file_path_to_indices;
     for (int i = 0; i < num_rows; ++i) {
-        auto file_path = file_path_column->get(i).get_slice().to_string();
+        auto datum = file_path_column->get(i);
+        // Handle NULL values - skip them as they don't reference any file
+        if (datum.is_null()) {
+            LOG(WARNING) << "Encountered NULL file_path at row " << i << ", skipping";
+            continue;
+        }
+        auto file_path = datum.get_slice().to_string();
         file_path_to_indices[file_path].push_back(i);
     }
 
