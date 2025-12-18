@@ -53,7 +53,7 @@ public:
 
     void rollback();
 
-    bool is_finished();
+    virtual bool is_finished();
 
     virtual void callback_on_commit(const CommitResult& result) = 0;
 

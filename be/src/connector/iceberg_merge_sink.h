@@ -96,6 +96,7 @@ public:
     Status add(const ChunkPtr& chunk) override;
 
     Status finish() override;
+    bool is_finished() override;
 
 private:
     std::vector<std::string> _transform_exprs;

@@ -173,6 +173,7 @@ Status IcebergMergeSink::add(const ChunkPtr& chunk) {
 }
 
 Status IcebergMergeSink::finish() {
+    LOG(INFO) << "IcebergMergeSink: finish";
     // Flush and finish all file-level writers
     for (auto& [key, writer] : _file_writers) {
         RETURN_IF_ERROR(writer->flush());
@@ -183,10 +184,21 @@ Status IcebergMergeSink::finish() {
     for (auto& [key, writer] : _file_writers) {
         RETURN_IF_ERROR(writer->finish());
     }
-    _file_writers.clear();
+    LOG(INFO) << "IcebergMergeSink: finish completed";
     return Status::OK();
 }
 
+bool IcebergMergeSink::is_finished() {
+    LOG(INFO) << "IcebergMergeSink: is_finished";
+    for (auto& [key, writer] : _file_writers) {
+        if (!writer->is_finished()) {
+            LOG(INFO) << "IcebergMergeSink: is_finished false";
+            return false;
+        }
+    }
+    LOG(INFO) << "IcebergMergeSink: is_finished true";
+    return true;
+}
 
 // IcebergMergeSinkProvider implementation
 StatusOr<std::unique_ptr<ConnectorChunkSink>> IcebergMergeSinkProvider::create_chunk_sink(
