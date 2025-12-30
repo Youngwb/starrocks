@@ -71,7 +71,7 @@ struct IcebergDeleteSinkContext : public ConnectorChunkSinkContext {
 // This is used for DELETE operations in Iceberg Merge-On-Read pattern
 class IcebergDeleteSinkProvider final : public ConnectorChunkSinkProvider {
 public:
-    ~IcebergMergeSinkProvider() override = default;
+    ~IcebergDeleteSinkProvider() override = default;
 
     // Create a sink for writing delete files
     StatusOr<std::unique_ptr<ConnectorChunkSink>> create_chunk_sink(
@@ -89,13 +89,15 @@ public:
                      std::unique_ptr<PartitionChunkWriterFactory> partition_chunk_writer_factory,
                      RuntimeState* state,
                      const std::unordered_map<std::string, SlotId>& column_slot_map);
-    ~IcebergMergeSink() override = default;
+    ~IcebergDeleteSink() override = default;
 
     void callback_on_commit(const CommitResult& result) override;
 
     Status add(const ChunkPtr& chunk) override;
 
     Status finish() override;
+
+    bool is_finished() override;
 
 private:
     std::vector<std::string> _transform_exprs;

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "connector/Iceberg_delete_sink.h"
+#include "connector/iceberg_delete_sink.h"
 
 #include <algorithm>
 #include <future>
@@ -30,6 +30,7 @@
 #include "gutil/strings/fastmem.h"
 #include "runtime/descriptor_helper.h"
 #include "runtime/descriptors.h"
+#include "column/column_helper.h"
 #include "storage/chunk_helper.h"
 #include "util/url_coding.h"
 #include "utils.h"
@@ -81,7 +82,7 @@ Status IcebergDeleteSink::add(const ChunkPtr& chunk) {
 
     // Find file_path column slot_id from the mapping
     SlotId file_path_slot_id = -1;
-    auto it = _column_slot_map.find("$file_path");
+    auto it = _column_slot_map.find("_file");
     if (it != _column_slot_map.end()) {
         file_path_slot_id = it->second;
     }
@@ -99,15 +100,8 @@ Status IcebergDeleteSink::add(const ChunkPtr& chunk) {
                                                   file_path_slot_id));
     }
 
-    // If it's a nullable column, get the data column
-    Column* data_column = file_path_column.get();
-    if (file_path_column->is_nullable()) {
-        auto* nullable_column = down_cast<NullableColumn*>(file_path_column.get());
-        data_column = nullable_column->data_column().get();
-    }
-
-    // Verify the data column is a BinaryColumn
-    auto* binary_column = down_cast<BinaryColumn*>(data_column);
+    // Use ColumnHelper to get the underlying binary column, handling nullable columns properly
+    const BinaryColumn* binary_column = ColumnHelper::get_binary_column(file_path_column.get());
 
     // Group rows by file_path to create file-level delete files
     // Map: file_path -> row indices
@@ -151,6 +145,18 @@ Status IcebergDeleteSink::finish() {
     }
     _file_writers.clear();
     return Status::OK();
+}
+
+bool IcebergDeleteSink::is_finished() {
+    LOG(INFO) << "IcebergDeleteSink: is_finished";
+    for (auto& [key, writer] : _file_writers) {
+        if (!writer->is_finished()) {
+            LOG(INFO) << "IcebergDeleteSink: is_finished false";
+            return false;
+        }
+    }
+    LOG(INFO) << "IcebergDeleteSink: is_finished true";
+    return true;
 }
 
 

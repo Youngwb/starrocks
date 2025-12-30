@@ -151,7 +151,6 @@ Status IcebergTableSink::decompose_to_pipeline(pipeline::OpFactories prev_operat
         auto connector = connector::ConnectorManager::default_instance()->get(connector::Connector::ICEBERG);
         auto sink_provider = connector->create_data_sink_provider();
 
-        std::vector<TExpr> partition_expr;
         if (iceberg_table_desc->is_unpartitioned_table()) {
             //do nothing
         } else if (t_iceberg_sink.is_static_partition_sink) {
@@ -161,7 +160,7 @@ Status IcebergTableSink::decompose_to_pipeline(pipeline::OpFactories prev_operat
                 }
                 partition_expr.push_back(this->get_output_expr()[index]);
             }
-            sink_ctx->partition_evaluators = ColumnExprEvaluator::from_exprs(partition_expr, runtime_state);
+            data_sink_ctx->partition_evaluators = ColumnExprEvaluator::from_exprs(partition_expr, runtime_state);
         } else {
             auto source_column_index = iceberg_table_desc->partition_source_index_in_schema();
             partition_expr = iceberg_table_desc->get_partition_exprs();
@@ -193,7 +192,7 @@ Status IcebergTableSink::decompose_to_pipeline(pipeline::OpFactories prev_operat
                 }
                 idx++;
             }
-            sink_ctx->partition_evaluators = ColumnExprEvaluator::from_exprs(partition_expr, runtime_state);
+            data_sink_ctx->partition_evaluators = ColumnExprEvaluator::from_exprs(partition_expr, runtime_state);
         }
     }
 
@@ -214,7 +213,7 @@ Status IcebergTableSink::decompose_to_pipeline(pipeline::OpFactories prev_operat
                                                 runtime_state));
         auto ops = context->interpolate_local_key_partition_exchange(
                 runtime_state, pipeline::Operator::s_pseudo_plan_node_id_for_final_sink, prev_operators,
-                partition_expr_ctxs, sink_dop, sink_ctx->transform_exprs);
+                partition_expr_ctxs, sink_dop, transform_exprs);
         ops.emplace_back(std::move(op));
         context->add_pipeline(std::move(ops));
     }
