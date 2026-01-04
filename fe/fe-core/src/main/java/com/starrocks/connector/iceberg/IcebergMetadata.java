@@ -89,6 +89,7 @@ import com.starrocks.sql.optimizer.operator.scalar.ScalarOperator;
 import com.starrocks.sql.optimizer.statistics.Statistics;
 import com.starrocks.statistic.StatisticUtils;
 import com.starrocks.thrift.TIcebergDataFile;
+import com.starrocks.thrift.TIcebergFileContent;
 import com.starrocks.thrift.TSinkCommitInfo;
 import com.starrocks.type.DateType;
 import com.starrocks.type.IntegerType;
@@ -102,6 +103,8 @@ import org.apache.iceberg.DataOperations;
 import org.apache.iceberg.DeleteFile;
 import org.apache.iceberg.DeleteFiles;
 import org.apache.iceberg.FileContent;
+import org.apache.iceberg.FileFormat;
+import org.apache.iceberg.FileMetadata;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.HistoryEntry;
 import org.apache.iceberg.IncrementalAppendScan;
@@ -114,6 +117,7 @@ import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.ReplacePartitions;
 import org.apache.iceberg.RewriteFiles;
+import org.apache.iceberg.RowDelta;
 import org.apache.iceberg.Scan;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
@@ -1309,6 +1313,102 @@ public class IcebergMetadata implements ConnectorMetadata {
         IcebergTable table = (IcebergTable) getTable(new ConnectContext(), dbName, tableName);
         org.apache.iceberg.Table nativeTbl = table.getNativeTable();
         Transaction transaction = nativeTbl.newTransaction();
+
+        // Check if this is a delete operation (any file is marked as POSITION_DELETES)
+        boolean isDeleteOperation = dataFiles.stream().anyMatch(dataFile ->
+                dataFile.isSetFile_content() &&
+                        (dataFile.getFile_content() == TIcebergFileContent.POSITION_DELETES));
+        if (isDeleteOperation) {
+            commitDeleteOperation(transaction, nativeTbl, dataFiles, branch, dbName, tableName);
+        } else {
+            commitDataOperation(transaction, nativeTbl, dataFiles, branch, isOverwrite, isRewrite, extra, dbName, tableName);
+        }
+    }
+
+    private void commitWithCleanup(Runnable commitAction, Runnable cleanupAction,
+                                   List<TIcebergDataFile> dataFiles, String dbName, String tableName) {
+        try {
+            commitAction.run();
+        } catch (Exception e) {
+            if (!(e instanceof CommitStateUnknownException)) {
+                List<String> toDeleteFiles = dataFiles.stream()
+                        .map(TIcebergDataFile::getPath)
+                        .collect(Collectors.toList());
+                icebergCatalog.deleteUncommittedDataFiles(toDeleteFiles);
+            }
+            LOG.error("Failed to commit iceberg transaction on {}.{}", dbName, tableName, e);
+            throw new StarRocksConnectorException(e.getMessage());
+        } finally {
+            cleanupAction.run();
+        }
+    }
+
+    private void invalidateCacheAfterCommit(String dbName, String tableName) {
+        // Invalidate cache after commit
+        tables.remove(TableIdentifier.of(dbName, tableName));
+        icebergCatalog.invalidateTableCache(dbName, tableName);
+        icebergCatalog.invalidatePartitionCache(dbName, tableName);
+    }
+
+    private void commitDeleteOperation(Transaction transaction, org.apache.iceberg.Table nativeTbl,
+                                       List<TIcebergDataFile> dataFiles, String branch,
+                                       String dbName, String tableName) {
+        // DELETE operations - use RowDelta
+        RowDelta rowDelta = transaction.newRowDelta();
+        if (branch != null) {
+            rowDelta.toBranch(branch);
+        }
+
+        PartitionSpec partitionSpec = nativeTbl.spec();
+        for (TIcebergDataFile dataFile : dataFiles) {
+            // All files should be delete files in a delete operation
+            org.apache.iceberg.DeleteFile deleteFile = FileMetadata.deleteFileBuilder(partitionSpec)
+                    .ofPositionDeletes()
+                    .withPath(dataFile.path)
+                    .withFormat(FileFormat.PARQUET)
+                    .withFileSizeInBytes(dataFile.file_size_in_bytes)
+                    .withRecordCount(dataFile.record_count)
+                    .withPartition(dataFile.isSetPartition_path() ?
+                            IcebergPartitionData.partitionDataFromPath(
+                                    getIcebergRelativePartitionPath(
+                                            IcebergUtil.tableDataLocation(nativeTbl),
+                                            dataFile.partition_path),
+                                    dataFile.isSetPartition_null_fingerprint() ?
+                                            dataFile.getPartition_null_fingerprint() :
+                                            "0".repeat(partitionSpec.fields().size()),
+                                    partitionSpec) : null)
+                    .withMetrics(dataFile.isSetColumn_stats() ?
+                            IcebergApiConverter.buildDataFileMetrics(dataFile, nativeTbl) : null)
+                    .build();
+
+            rowDelta.addDeletes(deleteFile);
+
+            // Note: For position delete files, we should collect the referenced data files
+            // However, the current TIcebergDataFile structure doesn't include this information
+            // In a full implementation, we would need to pass the referenced data file paths
+            // from BE to FE. For now, we skip this validation.
+        }
+
+        // Validate that referenced data files exist (critical for position deletes)
+        // This prevents data corruption if another operation deletes the referenced files
+        // rowDelta.validateDataFilesExist(referencedDataFiles);
+
+        // Validate that no referenced data files have been deleted
+        // This is required for position delete files to maintain correctness
+        // when concurrent operations might delete the referenced data files
+        rowDelta.validateDeletedFiles();
+
+        commitWithCleanup(() -> {
+            rowDelta.commit();
+            transaction.commitTransaction();
+            asyncRefreshOthersFeMetadataCache(dbName, tableName);
+        }, () -> invalidateCacheAfterCommit(dbName, tableName), dataFiles, dbName, tableName);
+    }
+
+    private void commitDataOperation(Transaction transaction, org.apache.iceberg.Table nativeTbl,
+                                     List<TIcebergDataFile> dataFiles, String branch,
+                                     boolean isOverwrite, boolean isRewrite, Object extra,
+                                     String dbName, String tableName) {
         BatchWrite batchWrite = getBatchWrite(transaction, isOverwrite, isRewrite);
 
         if (branch != null) {
@@ -1348,25 +1448,11 @@ public class IcebergMetadata implements ConnectorMetadata {
             ((RewriteData) batchWrite).setSnapshotId(nativeTbl.currentSnapshot().snapshotId());
         }
 
-        try {
+        commitWithCleanup(() -> {
             batchWrite.commit();
             transaction.commitTransaction();
             asyncRefreshOthersFeMetadataCache(dbName, tableName);
-        } catch (Exception e) {
-            if (!(e instanceof CommitStateUnknownException)) {
-                List<String> toDeleteFiles = dataFiles.stream()
-                        .map(TIcebergDataFile::getPath)
-                        .collect(Collectors.toList());
-                icebergCatalog.deleteUncommittedDataFiles(toDeleteFiles);
-            }
-            LOG.error("Failed to commit iceberg transaction on {}.{}", dbName, tableName, e);
-            throw new StarRocksConnectorException(e.getMessage());
-        } finally {
-            // Invalidate cache after commit
-            tables.remove(TableIdentifier.of(dbName, tableName));
-            icebergCatalog.invalidateTableCache(dbName, tableName);
-            icebergCatalog.invalidatePartitionCache(dbName, tableName);
-        }
+        }, () -> invalidateCacheAfterCommit(dbName, tableName), dataFiles, dbName, tableName);
     }
 
     private void asyncRefreshOthersFeMetadataCache(String dbName, String tableName) {

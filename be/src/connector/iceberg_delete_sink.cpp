@@ -53,7 +53,41 @@ IcebergDeleteSink::IcebergDeleteSink(std::vector<std::string> partition_columns,
 
 // Callback for handling commit results
 void IcebergDeleteSink::callback_on_commit(const CommitResult& result) {
-    // TODO: Implement proper commit result handling for delete files
+    push_rollback_action(std::move(result.rollback_action));
+    if (result.io_status.ok()) {
+        _state->update_num_rows_load_sink(result.file_statistics.record_count);
+
+        TIcebergColumnStats iceberg_column_stats;
+        if (result.file_statistics.column_sizes.has_value()) {
+            iceberg_column_stats.__set_column_sizes(result.file_statistics.column_sizes.value());
+        }
+        if (result.file_statistics.value_counts.has_value()) {
+            iceberg_column_stats.__set_value_counts(result.file_statistics.value_counts.value());
+        }
+        if (result.file_statistics.null_value_counts.has_value()) {
+            iceberg_column_stats.__set_null_value_counts(result.file_statistics.null_value_counts.value());
+        }
+        if (result.file_statistics.lower_bounds.has_value()) {
+            iceberg_column_stats.__set_lower_bounds(result.file_statistics.lower_bounds.value());
+        }
+        if (result.file_statistics.upper_bounds.has_value()) {
+            iceberg_column_stats.__set_upper_bounds(result.file_statistics.upper_bounds.value());
+        }
+
+        TIcebergDataFile iceberg_delete_file;
+        iceberg_delete_file.__set_column_stats(iceberg_column_stats);
+        iceberg_delete_file.__set_partition_path(PathUtils::get_parent_path(result.location));
+        iceberg_delete_file.__set_path(result.location);
+        iceberg_delete_file.__set_format(result.format);
+        iceberg_delete_file.__set_record_count(result.file_statistics.record_count);
+        iceberg_delete_file.__set_file_size_in_bytes(result.file_statistics.file_size);
+        iceberg_delete_file.__set_partition_null_fingerprint(result.extra_data);
+        iceberg_delete_file.__set_file_content(TIcebergFileContent::POSITION_DELETES);
+
+        TSinkCommitInfo commit_info;
+        commit_info.__set_iceberg_data_file(iceberg_delete_file);
+        _state->add_sink_commit_info(commit_info);
+    }
 }
 
 // Adds a chunk of data to the delete sink.
