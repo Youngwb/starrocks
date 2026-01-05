@@ -46,6 +46,8 @@ public class IcebergDeleteSink extends DataSink {
     private final long targetMaxFileSize;
     private final String tableIdentifier;
     private CloudConfiguration cloudConfiguration;
+    private String conflictDetectionFilter;
+    private com.starrocks.connector.iceberg.IcebergMetadata.IcebergSinkExtra sinkExtraInfo;
 
     /**
      * Constructor for IcebergDeleteSink
@@ -155,5 +157,42 @@ public class IcebergDeleteSink extends DataSink {
     @Override
     public boolean canUseRuntimeAdaptiveDop() {
         return true;
+    }
+
+    /**
+     * Sets the conflict detection filter for this delete operation
+     * This filter is used during commit validation to check for conflicts
+     *
+     * @param conflictDetectionFilter The conflict detection filter as a string
+     */
+    public void setConflictDetectionFilter(String conflictDetectionFilter) {
+        this.conflictDetectionFilter = conflictDetectionFilter;
+    }
+
+    /**
+     * Gets the conflict detection filter for this delete operation
+     *
+     * @return The conflict detection filter, or null if not set
+     */
+    public String getConflictDetectionFilter() {
+        return conflictDetectionFilter;
+    }
+
+    /**
+     * Sets the sink extra info for this delete operation
+     *
+     * @param sinkExtraInfo The extra info to set
+     */
+    public void setSinkExtraInfo(com.starrocks.connector.iceberg.IcebergMetadata.IcebergSinkExtra sinkExtraInfo) {
+        this.sinkExtraInfo = sinkExtraInfo;
+    }
+
+    /**
+     * Gets the sink extra info for this delete operation
+     *
+     * @return The extra info, or null if not set
+     */
+    public com.starrocks.connector.iceberg.IcebergMetadata.IcebergSinkExtra getSinkExtraInfo() {
+        return sinkExtraInfo;
     }
 }

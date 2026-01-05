@@ -83,6 +83,7 @@ void IcebergDeleteSink::callback_on_commit(const CommitResult& result) {
         iceberg_delete_file.__set_file_size_in_bytes(result.file_statistics.file_size);
         iceberg_delete_file.__set_partition_null_fingerprint(result.extra_data);
         iceberg_delete_file.__set_file_content(TIcebergFileContent::POSITION_DELETES);
+        iceberg_delete_file.__set_referenced_data_file(result.referenced_data_file);
 
         TSinkCommitInfo commit_info;
         commit_info.__set_iceberg_data_file(iceberg_delete_file);
@@ -328,8 +329,12 @@ Status IcebergDeleteSink::write_file_level_chunk(const std::string& partition,
     // Create new writer for this (partition, file_path)
     auto writer = _partition_chunk_writer_factory->create(partition, partition_field_null_list);
 
-    // Set up callbacks
-    auto commit_callback = [this](const CommitResult& r) { this->callback_on_commit(r); };
+    // Set up callbacks - capture file_path to set referenced_data_file in result
+    auto commit_callback = [this, file_path](const CommitResult& r) {
+        CommitResult modified_result = r;
+        modified_result.set_referenced_data_file(file_path);
+        this->callback_on_commit(modified_result);
+    };
     auto error_handler = [this](const Status& s) { this->set_status(s); };
     writer->set_commit_callback(commit_callback);
     writer->set_error_handler(error_handler);

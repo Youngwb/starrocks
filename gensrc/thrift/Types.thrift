@@ -594,6 +594,7 @@ struct TIcebergDataFile {
     7: optional TIcebergColumnStats column_stats;
     8: optional string partition_null_fingerprint;
     9: optional TIcebergFileContent file_content;
+    10: optional string referenced_data_file;
 }
 
 struct THiveFileInfo {

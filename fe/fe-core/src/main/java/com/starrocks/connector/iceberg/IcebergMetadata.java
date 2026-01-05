@@ -15,6 +15,7 @@
 package com.starrocks.connector.iceberg;
 
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.starrocks.catalog.Column;
@@ -108,6 +109,7 @@ import org.apache.iceberg.FileMetadata;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.HistoryEntry;
 import org.apache.iceberg.IncrementalAppendScan;
+import org.apache.iceberg.IsolationLevel;
 import org.apache.iceberg.ManifestFile;
 import org.apache.iceberg.Metrics;
 import org.apache.iceberg.MetricsConfig;
@@ -180,6 +182,8 @@ import static com.starrocks.connector.iceberg.IcebergApiConverter.toIcebergApiSc
 import static com.starrocks.server.CatalogMgr.ResourceMappingCatalog.isResourceMappingCatalog;
 import static java.util.Comparator.comparing;
 import static org.apache.iceberg.TableProperties.DEFAULT_WRITE_METRICS_MODE_DEFAULT;
+import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL;
+import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL_DEFAULT;
 
 public class IcebergMetadata implements ConnectorMetadata {
 
@@ -1319,7 +1323,7 @@ public class IcebergMetadata implements ConnectorMetadata {
                 dataFile.isSetFile_content() &&
                         (dataFile.getFile_content() == TIcebergFileContent.POSITION_DELETES));
         if (isDeleteOperation) {
-            commitDeleteOperation(transaction, nativeTbl, dataFiles, branch, dbName, tableName);
+            commitDeleteOperation(transaction, nativeTbl, dataFiles, branch, dbName, tableName, extra);
         } else {
             commitDataOperation(transaction, nativeTbl, dataFiles, branch, isOverwrite, isRewrite, extra, dbName, tableName);
         }
@@ -1352,7 +1356,7 @@ public class IcebergMetadata implements ConnectorMetadata {
 
     private void commitDeleteOperation(Transaction transaction, org.apache.iceberg.Table nativeTbl,
                                        List<TIcebergDataFile> dataFiles, String branch,
-                                       String dbName, String tableName) {
+                                       String dbName, String tableName, Object extra) {
         // DELETE operations - use RowDelta
         RowDelta rowDelta = transaction.newRowDelta();
         if (branch != null) {
@@ -1360,9 +1364,10 @@ public class IcebergMetadata implements ConnectorMetadata {
         }
 
         PartitionSpec partitionSpec = nativeTbl.spec();
+        ImmutableSet.Builder<String> referencedDataFiles = ImmutableSet.builder();
         for (TIcebergDataFile dataFile : dataFiles) {
             // All files should be delete files in a delete operation
-            org.apache.iceberg.DeleteFile deleteFile = FileMetadata.deleteFileBuilder(partitionSpec)
+            FileMetadata.Builder builder = FileMetadata.deleteFileBuilder(partitionSpec)
                     .ofPositionDeletes()
                     .withPath(dataFile.path)
                     .withFormat(FileFormat.PARQUET)
@@ -1378,25 +1383,42 @@ public class IcebergMetadata implements ConnectorMetadata {
                                             "0".repeat(partitionSpec.fields().size()),
                                     partitionSpec) : null)
                     .withMetrics(dataFile.isSetColumn_stats() ?
-                            IcebergApiConverter.buildDataFileMetrics(dataFile, nativeTbl) : null)
-                    .build();
+                            IcebergApiConverter.buildDataFileMetrics(dataFile, nativeTbl) : null);
 
+            // Set referenced data file if available
+            if (dataFile.isSetReferenced_data_file()) {
+                String referencedFile = dataFile.getReferenced_data_file();
+                builder.withReferencedDataFile(referencedFile);
+                referencedDataFiles.add(referencedFile);
+            }
+
+            org.apache.iceberg.DeleteFile deleteFile = builder.build();
             rowDelta.addDeletes(deleteFile);
-
-            // Note: For position delete files, we should collect the referenced data files
-            // However, the current TIcebergDataFile structure doesn't include this information
-            // In a full implementation, we would need to pass the referenced data file paths
-            // from BE to FE. For now, we skip this validation.
         }
 
-        // Validate that referenced data files exist (critical for position deletes)
-        // This prevents data corruption if another operation deletes the referenced files
-        // rowDelta.validateDataFilesExist(referencedDataFiles);
+        // Validate from snapshot if table has current snapshot
+        if (nativeTbl.currentSnapshot() != null) {
+            rowDelta.validateFromSnapshot(nativeTbl.currentSnapshot().snapshotId());
+        }
 
-        // Validate that no referenced data files have been deleted
-        // This is required for position delete files to maintain correctness
-        // when concurrent operations might delete the referenced data files
+        // Validate that referenced data files exist and haven't been deleted
+        rowDelta.validateDataFilesExist(referencedDataFiles.build());
         rowDelta.validateDeletedFiles();
+
+        // Set conflict detection filter if available
+        // This filter defines which data files should be checked for conflicts during validation
+        if (extra instanceof IcebergSinkExtra) {
+            Expression conflictDetectionFilterObj = ((IcebergSinkExtra) extra).getConflictDetectionFilter();
+            if (conflictDetectionFilterObj != null) {
+                rowDelta.conflictDetectionFilter(conflictDetectionFilterObj);
+            }
+        }
+
+        IsolationLevel isolationLevel = IsolationLevel.fromName(nativeTbl.properties().
+                getOrDefault(DELETE_ISOLATION_LEVEL, DELETE_ISOLATION_LEVEL_DEFAULT));
+        if (isolationLevel == IsolationLevel.SERIALIZABLE) {
+            rowDelta.validateNoConflictingDataFiles();
+        }
 
         commitWithCleanup(() -> {
             rowDelta.commit();
@@ -1572,6 +1594,7 @@ public class IcebergMetadata implements ConnectorMetadata {
     public static class IcebergSinkExtra {
         private final Set<DataFile> scannedDataFiles;
         private final Set<DeleteFile> appliedDeleteFiles;
+        private Expression conflictDetectionFilter;
 
         public IcebergSinkExtra() {
             this.scannedDataFiles = new HashSet<>();
@@ -1592,6 +1615,14 @@ public class IcebergMetadata implements ConnectorMetadata {
 
         public Set<DeleteFile> getAppliedDeleteFiles() {
             return appliedDeleteFiles;
+        }
+
+        public void setConflictDetectionFilter(Expression conflictDetectionFilter) {
+            this.conflictDetectionFilter = conflictDetectionFilter;
+        }
+
+        public Expression getConflictDetectionFilter() {
+            return conflictDetectionFilter;
         }
     }
 
