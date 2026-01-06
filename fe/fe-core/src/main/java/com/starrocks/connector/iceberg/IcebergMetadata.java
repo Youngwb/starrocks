@@ -1373,7 +1373,7 @@ public class IcebergMetadata implements ConnectorMetadata {
                     .withFormat(FileFormat.PARQUET)
                     .withFileSizeInBytes(dataFile.file_size_in_bytes)
                     .withRecordCount(dataFile.record_count)
-                    .withPartition(dataFile.isSetPartition_path() ?
+                    .withPartition(partitionSpec.isPartitioned() ?
                             IcebergPartitionData.partitionDataFromPath(
                                     getIcebergRelativePartitionPath(
                                             IcebergUtil.tableDataLocation(nativeTbl),
