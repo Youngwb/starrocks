@@ -108,8 +108,10 @@ public class IVMAnalyzer {
                     // min/max: numeric and temporal. VARCHAR/STRING is excluded — combinator
                     // intermediateType for VARCHAR widens to varchar(MAX) and trips the
                     // type-equality assertion in IvmOpUtils.buildStateUnionScalarOperator.
-                    .put(FunctionSet.MIN,                    args -> isFixedOrFloat(args[0]) || isTemporal(args[0]))
-                    .put(FunctionSet.MAX,                    args -> isFixedOrFloat(args[0]) || isTemporal(args[0]))
+                    .put(FunctionSet.MIN,
+                            args -> isFixedOrFloat(args[0]) || isTemporal(args[0]) || args[0].isStringType())
+                    .put(FunctionSet.MAX,
+                            args -> isFixedOrFloat(args[0]) || isTemporal(args[0]) || args[0].isStringType())
                     // bool_or: associative OR over booleans, no state representation issues.
                     .put(FunctionSet.BOOL_OR,                args -> args.length == 1 && args[0].isBoolean())
                     // approx_count_distinct / ndv: HLL state union is well-defined.
