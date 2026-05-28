@@ -211,8 +211,12 @@ void AggregatorParams::init() {
         const TExpr& desc = aggregate_functions[i];
         const TFunction& fn = desc.nodes[0].fn;
 
-        if (AggStateUtils::is_count_function(fn.name.function_name)) {
-            // count function is always not nullable
+        if (fn.name.function_name == FUNCTION_COUNT) {
+            // Must stay aligned with the `== FUNCTION_COUNT` gates in
+            // _is_agg_result_nullable and _create_aggregate_function. The count
+            // combinators (count_combine / count_union / count_merge) must fall
+            // through to the normal branch so the nested count lookup picks
+            // CountNullableAggregateFunction when the input is nullable.
             agg_fn_types[i] = {TypeDescriptor(TYPE_BIGINT), TypeDescriptor(TYPE_BIGINT), {}, false, false};
         } else {
             // whether agg function has nullable child
