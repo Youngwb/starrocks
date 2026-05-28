@@ -619,6 +619,12 @@ Status Aggregator::_create_aggregate_function(starrocks::RuntimeState* state, co
         }
         ASSIGN_OR_RETURN(const AggregateFunction* agg_state_func,
                          AggStateUtils::get_agg_state_function(agg_state_desc, func_name, arg_types));
+        if (func_name.find("count") != std::string::npos) {
+            LOG(WARNING) << "[ywbug 55848] _create_aggregate_function combinator: func_name=" << func_name
+                         << " caller_is_result_nullable=" << is_result_nullable
+                         << " agg_state_desc(after_override)=" << agg_state_desc.debug_string()
+                         << " selected_outer=" << agg_state_func->get_name();
+        }
         *ret = agg_state_func;
         _combinator_function.emplace_back(agg_state_func);
     } else {
