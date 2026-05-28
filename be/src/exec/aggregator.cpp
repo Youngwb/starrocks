@@ -211,12 +211,16 @@ void AggregatorParams::init() {
         const TExpr& desc = aggregate_functions[i];
         const TFunction& fn = desc.nodes[0].fn;
 
-        if (fn.name.function_name == FUNCTION_COUNT) {
-            // Must stay aligned with the `== FUNCTION_COUNT` gates in
-            // _is_agg_result_nullable and _create_aggregate_function. The count
-            // combinators (count_combine / count_union / count_merge) must fall
-            // through to the normal branch so the nested count lookup picks
-            // CountNullableAggregateFunction when the input is nullable.
+        if (fn.name.function_name == FUNCTION_COUNT ||
+            fn.name.function_name == FUNCTION_COUNT + AggStateUtils::AGG_STATE_IF_SUFFIX) {
+            // count and count_if write their state into a plain Int64Column via
+            // Count[Nullable]AggregateFunction::serialize_to_column; the output
+            // column must therefore stay non-nullable, which the mocked
+            // (has_nullable_child=false, is_nullable=false) delivers.
+            // count_combine / count_union / count_merge MUST fall through to
+            // the normal branch so the nested count lookup sees the real input
+            // nullability and picks CountNullableAggregateFunction for nullable
+            // columns.
             agg_fn_types[i] = {TypeDescriptor(TYPE_BIGINT), TypeDescriptor(TYPE_BIGINT), {}, false, false};
         } else {
             // whether agg function has nullable child
