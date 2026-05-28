@@ -17,6 +17,7 @@
 #include <memory>
 
 #include "base/failpoint/fail_point.h"
+#include "common/logging.h"
 #include "exprs/agg/aggregate.h"
 #include "exprs/agg/factory/aggregate_factory.hpp"
 #include "exprs/agg/factory/aggregate_resolver.hpp"
@@ -191,6 +192,10 @@ AggregateFunctionPtr get_aggregate_function(const std::string& agg_func_name, co
                                             TFunctionBinaryType::type binary_type, int func_version) {
     // get function
     if (agg_func_name == "count") {
+        LOG(WARNING) << "[ywbug 55848] typed count lookup: is_result_nullable_arg=" << is_result_nullable
+                     << " arg_types_count=" << arg_types.size()
+                     << " arg0_kind=" << (arg_types.empty() ? -1 : static_cast<int>(arg_types[0].type))
+                     << " binary_type=" << binary_type << " func_version=" << func_version;
         return get_aggregate_function("count", TYPE_BIGINT, TYPE_BIGINT, is_result_nullable);
     } else {
         DCHECK_GE(arg_types.size(), 1);
