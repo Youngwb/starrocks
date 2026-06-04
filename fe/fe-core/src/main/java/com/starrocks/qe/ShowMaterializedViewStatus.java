@@ -28,6 +28,7 @@ import com.starrocks.catalog.MaterializedViewRefreshType;
 import com.starrocks.catalog.OlapTable;
 import com.starrocks.catalog.Partition;
 import com.starrocks.catalog.PartitionType;
+import com.starrocks.catalog.ResourceGroup;
 import com.starrocks.common.Pair;
 import com.starrocks.common.util.DebugUtil;
 import com.starrocks.common.util.TimeUtils;
@@ -406,7 +407,7 @@ public class ShowMaterializedViewStatus {
         status.setRefreshMode(null);
         status.setRefreshTrigger("NONE");
         status.setRefreshPolicy("NONE");
-        status.setResourceGroup("default_mv_wg");
+        status.setResourceGroup(ResourceGroup.DEFAULT_MV_RESOURCE_GROUP_NAME);
         status.setQueryRewriteStatusReason("OK");
         return status;
     }

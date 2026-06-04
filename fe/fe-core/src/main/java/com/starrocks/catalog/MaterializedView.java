@@ -1770,7 +1770,7 @@ public class MaterializedView extends OlapTable implements GsonPreProcessable, G
     public String getResourceGroupString() {
         Map<String, String> session = getSessionProperties();
         String resourceGroup = session.get(SessionVariable.RESOURCE_GROUP);
-        return Strings.isNullOrEmpty(resourceGroup) ? "default_mv_wg" : resourceGroup;
+        return Strings.isNullOrEmpty(resourceGroup) ? ResourceGroup.DEFAULT_MV_RESOURCE_GROUP_NAME : resourceGroup;
     }
 
     /**
