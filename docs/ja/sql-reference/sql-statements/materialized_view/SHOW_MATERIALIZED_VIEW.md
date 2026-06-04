@@ -65,6 +65,18 @@ WHERE NAME { = "mv_name" | LIKE "mv_name_matcher"}
 | last_refresh_error_message | マテリアライズドビューの最後のリフレッシュが失敗した理由（マテリアライズドビューの状態がアクティブでない場合）。 |
 | rows                       | マテリアライズドビューのデータ行数。            |
 | text                       | マテリアライズドビューを作成するために使用されたステートメント。          |
+| extra_message              | 最新のリフレッシュタスクに関する追加情報。                   |
+| query_rewrite_status       | マテリアライズドビューのクエリリライトステータス。有効な値: `VALID`、`INVALID`、`UNKNOWN`。このステータスの理由については `query_rewrite_status_reason` を参照してください。 |
+| creator                    | マテリアライズドビューのリフレッシュタスクの作成者。         |
+| last_refresh_process_time  | 最新のリフレッシュタスクの処理開始時間。                     |
+| last_refresh_job_id        | 最新のリフレッシュタスクのジョブ ID。                        |
+| last_refresh_time          | ベーステーブルの更新がマテリアライズドビューに反映されている最新の時間。 |
+| warehouse                  | 非同期マテリアライズドビューがリフレッシュタスクに使用するウェアハウスの名前。同期 (rollup) マテリアライズドビューの場合は空です。 |
+| refresh_mode               | 非同期マテリアライズドビューに設定されたリフレッシュモード。有効な値: `PCT` (パーティション変更追跡。変更されたパーティションのみをリフレッシュ)、`INCREMENTAL` (インクリメンタルビューメンテナンス)、`AUTO`。同期マテリアライズドビューの場合は空です。 |
+| refresh_trigger            | リフレッシュがトリガーされる方法。有効な値: `NONE` (同期マテリアライズドビュー)、`MANUAL` (REFRESH MATERIALIZED VIEW 経由のみ)、`SCHEDULED` (EVERY 間隔による定期実行)、`ON_BASE_TABLE_CHANGE` (ベーステーブルのロードまたは変更時に自動実行)。 |
+| refresh_policy             | 人間が読めるリフレッシュポリシー。有効な値: `NONE`、`MANUAL`、`ON_BASE_TABLE_CHANGE`、または `START("yyyy-MM-dd HH:mm:ss") EVERY(INTERVAL n unit)` のようなスケジュール (`START` 句は開始時刻が定義されている場合にのみ含まれます)。 |
+| resource_group             | マテリアライズドビューのリフレッシュタスクに使用されるリソースグループ (マテリアライズドビューの `session.resource_group` プロパティから)。設定されていない場合は `default_mv_wg` がデフォルトです。 |
+| query_rewrite_status_reason | `query_rewrite_status` の理由。有効な値: `OK`、`MV_INACTIVE`、`QUERY_REWRITE_DISABLED`、`UNSUPPORTED_DEFINITION`、`UNKNOWN`。 |
 
 ## 例
 

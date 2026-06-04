@@ -33,9 +33,14 @@ displayed_sidebar: docs
 | TABLE_ROWS                           | 物化视图的数据行数，后台统计的近似值。           |
 | MATERIALIZED_VIEW_DEFINITION         | 物化视图的 SQL 定义。                            |
 | EXTRA_MESSAGE                        | 物化视图的额外信息。                             |
-| QUERY_REWRITE_STATUS                 | 物化视图的查询改写状态。有效值：`VALID`、`INVALID` 和 `UNKNOWN`。 |
-| QUERY_REWRITE_STATUS_REASON          | `QUERY_REWRITE_STATUS` 的原因。有效值：`OK`、`MV_INACTIVE`、`QUERY_REWRITE_DISABLED`、`UNSUPPORTED_DEFINITION` 和 `UNKNOWN`。 |
+| QUERY_REWRITE_STATUS                 | 物化视图的查询改写状态。有效值：`VALID`、`INVALID` 和 `UNKNOWN`。该状态的原因请参见 `QUERY_REWRITE_STATUS_REASON`。 |
 | CREATOR                              | 物化视图的创建者。                               |
 | LAST_REFRESH_PROCESS_TIME            | 最近一次刷新任务的处理时间。                     |
 | LAST_REFRESH_JOB_ID                  | 最近一次刷新任务的作业 ID。                      |
 | LAST_REFRESH_TIME                    | 物化视图已反映基表更新的最新时间。               |
+| WAREHOUSE                            | 异步物化视图执行刷新任务所使用的 warehouse 名称。对于同步（rollup）物化视图为空。 |
+| REFRESH_MODE                         | 异步物化视图配置的刷新模式。有效值：`PCT`（分区变更跟踪，仅刷新发生变更的分区）、`INCREMENTAL`（增量视图维护）和 `AUTO`。对于同步物化视图为空。 |
+| REFRESH_TRIGGER                      | 刷新的触发方式。有效值：`NONE`（同步物化视图）、`MANUAL`（仅通过 REFRESH MATERIALIZED VIEW 触发）、`SCHEDULED`（周期性触发，通过 EVERY 间隔）和 `ON_BASE_TABLE_CHANGE`（基表导入或变更时自动触发）。 |
+| REFRESH_POLICY                       | 可读的刷新策略。有效值：`NONE`、`MANUAL`、`ON_BASE_TABLE_CHANGE`，或形如 `START("yyyy-MM-dd HH:mm:ss") EVERY(INTERVAL n unit)` 的调度（仅当定义了起始时间时才包含 `START` 子句）。 |
+| RESOURCE_GROUP                       | 物化视图刷新任务所使用的资源组（来自物化视图的 `session.resource_group` 属性）。未设置时默认为 `default_mv_wg`。 |
+| QUERY_REWRITE_STATUS_REASON          | `QUERY_REWRITE_STATUS` 的原因。有效值：`OK`、`MV_INACTIVE`、`QUERY_REWRITE_DISABLED`、`UNSUPPORTED_DEFINITION` 和 `UNKNOWN`。 |
