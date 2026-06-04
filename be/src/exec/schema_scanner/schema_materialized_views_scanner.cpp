@@ -54,6 +54,7 @@ SchemaScanner::ColumnDesc SchemaMaterializedViewsScanner::_s_tbls_columns[] = {
         {"LAST_REFRESH_PROCESS_TIME", TypeDescriptor::from_logical_type(TYPE_DATETIME), sizeof(DateTimeValue), true},
         {"LAST_REFRESH_JOB_ID", TypeDescriptor::create_varchar_type(sizeof(Slice)), sizeof(Slice), true},
         {"LAST_REFRESH_TIME", TypeDescriptor::from_logical_type(TYPE_DATETIME), sizeof(DateTimeValue), true},
+        {"WAREHOUSE", TypeDescriptor::create_varchar_type(sizeof(Slice)), sizeof(Slice), true},
 };
 
 SchemaMaterializedViewsScanner::SchemaMaterializedViewsScanner()
@@ -436,6 +437,17 @@ Status SchemaMaterializedViewsScanner::fill_chunk(ChunkPtr* chunk) {
                 } else {
                     fill_column_with_slot<TYPE_DATETIME>(column, (void*)&t);
                 }
+            } else {
+                fill_data_column_with_null(column);
+            }
+            break;
+        }
+        case 29: {
+            // WAREHOUSE
+            if (info.__isset.warehouse) {
+                const std::string* str = &info.warehouse;
+                Slice value(str->c_str(), str->length());
+                fill_column_with_slot<TYPE_VARCHAR>(column, (void*)&value);
             } else {
                 fill_data_column_with_null(column);
             }

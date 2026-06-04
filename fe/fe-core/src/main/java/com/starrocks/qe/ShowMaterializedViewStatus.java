@@ -75,6 +75,7 @@ public class ShowMaterializedViewStatus {
     private long taskId;
     private String taskName;
     private long lastRefreshTime;
+    private String warehouse;
     private List<TaskRunStatus> lastJobTaskRunStatus;
 
     /**
@@ -357,6 +358,7 @@ public class ShowMaterializedViewStatus {
         if (refreshScheme != null) {
             status.setLastRefreshTime(refreshScheme.getLastRefreshTime());
         }
+        status.setWarehouse(mv.getWarehouseName());
         status.setLastJobTaskRunStatus(taskTaskStatusJob);
         return status;
     }
@@ -388,6 +390,7 @@ public class ShowMaterializedViewStatus {
         } else {
             status.setRows(0L);
         }
+        status.setWarehouse("");
         return status;
     }
 
@@ -493,6 +496,14 @@ public class ShowMaterializedViewStatus {
 
     public void setLastRefreshTime(long lastRefreshTime) {
         this.lastRefreshTime = lastRefreshTime;
+    }
+
+    public String getWarehouse() {
+        return warehouse;
+    }
+
+    public void setWarehouse(String warehouse) {
+        this.warehouse = warehouse;
     }
 
     public void setLastJobTaskRunStatus(List<TaskRunStatus> lastJobTaskRunStatus) {
@@ -674,6 +685,7 @@ public class ShowMaterializedViewStatus {
         if (lastRefreshTime > 0) {
             status.setLast_refresh_time(TimeUtils.longToTimeString(lastRefreshTime));
         }
+        status.setWarehouse(Strings.nullToEmpty(this.warehouse));
 
         return status;
     }
@@ -749,6 +761,7 @@ public class ShowMaterializedViewStatus {
         addField(resultRow, refreshJobStatus.getJobId());
         // last refresh time (data version timestamp used for staleness check)
         addField(resultRow, lastRefreshTime > 0 ? TimeUtils.longToTimeString(lastRefreshTime) : "");
+        addField(resultRow, Strings.nullToEmpty(warehouse));
 
         return resultRow;
     }

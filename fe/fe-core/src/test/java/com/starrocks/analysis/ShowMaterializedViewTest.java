@@ -125,13 +125,21 @@ public class ShowMaterializedViewTest {
                         "information_schema.materialized_views.creator AS creator, " +
                         "information_schema.materialized_views.last_refresh_process_time AS last_refresh_process_time, " +
                         "information_schema.materialized_views.last_refresh_job_id AS last_refresh_job_id, " +
-                        "information_schema.materialized_views.last_refresh_time AS last_refresh_time" +
+                        "information_schema.materialized_views.last_refresh_time AS last_refresh_time, " +
+                        "information_schema.materialized_views.warehouse AS warehouse" +
                         " FROM " +
                         "information_schema.materialized_views " +
                         "WHERE (information_schema.materialized_views.TABLE_SCHEMA = 'abc') AND " +
                         "(information_schema.materialized_views.TABLE_NAME = 'mv1')",
                 AstToStringBuilder.toString(queryStatement));
         checkShowMaterializedViewsStmt(stmt);
+    }
+
+    @Test
+    public void testWarehouseColumn() {
+        List<Column> schema = MaterializedViewsSystemTable.create().getBaseSchema();
+        Assertions.assertTrue(schema.stream().anyMatch(c -> c.getName().equalsIgnoreCase("WAREHOUSE")));
+        Assertions.assertEquals("WAREHOUSE", schema.get(schema.size() - 1).getName());
     }
 
     private void checkShowMaterializedViewsStmt(ShowMaterializedViewsStmt stmt) {
