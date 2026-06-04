@@ -414,6 +414,7 @@ struct TMaterializedViewStatus {
     33: optional string refresh_mode
     34: optional string refresh_trigger
     35: optional string refresh_policy
+    36: optional string resource_group
 }
 
 struct TListPipesParams {

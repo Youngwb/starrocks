@@ -56,6 +56,7 @@ import com.starrocks.persist.gson.GsonPreProcessable;
 import com.starrocks.persist.gson.GsonUtils;
 import com.starrocks.planner.DescriptorTable.ReferencedPartitionInfo;
 import com.starrocks.qe.ConnectContext;
+import com.starrocks.qe.SessionVariable;
 import com.starrocks.qe.SqlModeHelper;
 import com.starrocks.scheduler.Task;
 import com.starrocks.scheduler.TaskBuilder;
@@ -1764,6 +1765,12 @@ public class MaterializedView extends OlapTable implements GsonPreProcessable, G
             sb.append(" EVERY(INTERVAL ").append(asyncRefreshContext.getStep()).append(" ")
                     .append(asyncRefreshContext.getTimeUnit()).append(")");
         }
+    }
+
+    public String getResourceGroupString() {
+        Map<String, String> session = getSessionProperties();
+        String resourceGroup = session.get(SessionVariable.RESOURCE_GROUP);
+        return Strings.isNullOrEmpty(resourceGroup) ? "default_mv_wg" : resourceGroup;
     }
 
     /**

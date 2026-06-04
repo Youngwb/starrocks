@@ -79,6 +79,7 @@ public class ShowMaterializedViewStatus {
     private String refreshMode;
     private String refreshTrigger;
     private String refreshPolicy;
+    private String resourceGroup;
     private List<TaskRunStatus> lastJobTaskRunStatus;
 
     /**
@@ -365,6 +366,7 @@ public class ShowMaterializedViewStatus {
         status.setRefreshMode(mv.getRefreshMode() == null ? null : mv.getRefreshMode().name());
         status.setRefreshTrigger(mv.getRefreshTriggerString());
         status.setRefreshPolicy(mv.getRefreshPolicyString());
+        status.setResourceGroup(mv.getResourceGroupString());
         status.setLastJobTaskRunStatus(taskTaskStatusJob);
         return status;
     }
@@ -400,6 +402,7 @@ public class ShowMaterializedViewStatus {
         status.setRefreshMode(null);
         status.setRefreshTrigger("NONE");
         status.setRefreshPolicy("NONE");
+        status.setResourceGroup("default_mv_wg");
         return status;
     }
 
@@ -537,6 +540,14 @@ public class ShowMaterializedViewStatus {
 
     public void setRefreshPolicy(String refreshPolicy) {
         this.refreshPolicy = refreshPolicy;
+    }
+
+    public String getResourceGroup() {
+        return resourceGroup;
+    }
+
+    public void setResourceGroup(String resourceGroup) {
+        this.resourceGroup = resourceGroup;
     }
 
     public void setLastJobTaskRunStatus(List<TaskRunStatus> lastJobTaskRunStatus) {
@@ -722,6 +733,7 @@ public class ShowMaterializedViewStatus {
         status.setRefresh_mode(Strings.nullToEmpty(this.refreshMode));
         status.setRefresh_trigger(Strings.nullToEmpty(this.refreshTrigger));
         status.setRefresh_policy(Strings.nullToEmpty(this.refreshPolicy));
+        status.setResource_group(Strings.nullToEmpty(this.resourceGroup));
 
         return status;
     }
@@ -801,6 +813,7 @@ public class ShowMaterializedViewStatus {
         addField(resultRow, Strings.nullToEmpty(refreshMode));
         addField(resultRow, Strings.nullToEmpty(refreshTrigger));
         addField(resultRow, Strings.nullToEmpty(refreshPolicy));
+        addField(resultRow, Strings.nullToEmpty(resourceGroup));
 
         return resultRow;
     }

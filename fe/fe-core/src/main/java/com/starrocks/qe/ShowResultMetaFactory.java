@@ -882,6 +882,7 @@ public class ShowResultMetaFactory implements AstVisitorExtendInterface<ShowResu
                 .column("refresh_mode", TypeFactory.createVarcharType(16))
                 .column("refresh_trigger", TypeFactory.createVarcharType(24))
                 .column("refresh_policy", TypeFactory.createVarcharType(256))
+                .column("resource_group", TypeFactory.createVarcharType(128))
                 .build();
     }
 

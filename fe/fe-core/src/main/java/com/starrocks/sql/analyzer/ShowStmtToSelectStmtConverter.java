@@ -93,7 +93,8 @@ public final class ShowStmtToSelectStmtConverter {
             "warehouse",
             "refresh_mode",
             "refresh_trigger",
-            "refresh_policy"
+            "refresh_policy",
+            "resource_group"
     );
 
     private static final Map<String, String> MATERIALIZED_VIEW_ALIAS_MAP = ImmutableMap.of(
