@@ -41,7 +41,7 @@ public class MVPlanValidationResult {
         MV_INACTIVE,
         QUERY_REWRITE_DISABLED,
         UNSUPPORTED_DEFINITION,
-        // reserved for a future staleness check; not produced yet
+        // reserved; not yet produced
         STALE,
         UNKNOWN
     }
