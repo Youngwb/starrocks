@@ -879,6 +879,7 @@ public class ShowResultMetaFactory implements AstVisitorExtendInterface<ShowResu
                 .column("last_refresh_job_id", TypeFactory.createVarcharType(64))
                 .column("last_refresh_time", DATETIME)
                 .column("warehouse", TypeFactory.createVarcharType(128))
+                .column("refresh_mode", TypeFactory.createVarcharType(16))
                 .build();
     }
 

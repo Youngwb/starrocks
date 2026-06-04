@@ -411,6 +411,7 @@ struct TMaterializedViewStatus {
     30: optional string last_refresh_job_id
     31: optional string last_refresh_time
     32: optional string warehouse
+    33: optional string refresh_mode
 }
 
 struct TListPipesParams {
