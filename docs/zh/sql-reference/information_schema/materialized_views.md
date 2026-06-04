@@ -34,6 +34,7 @@ displayed_sidebar: docs
 | MATERIALIZED_VIEW_DEFINITION         | 物化视图的 SQL 定义。                            |
 | EXTRA_MESSAGE                        | 物化视图的额外信息。                             |
 | QUERY_REWRITE_STATUS                 | 物化视图的查询改写状态。有效值：`VALID`、`INVALID` 和 `UNKNOWN`。 |
+| QUERY_REWRITE_STATUS_REASON          | `QUERY_REWRITE_STATUS` 的原因。有效值：`OK`、`MV_INACTIVE`、`QUERY_REWRITE_DISABLED`、`UNSUPPORTED_DEFINITION` 和 `UNKNOWN`。 |
 | CREATOR                              | 物化视图的创建者。                               |
 | LAST_REFRESH_PROCESS_TIME            | 最近一次刷新任务的处理时间。                     |
 | LAST_REFRESH_JOB_ID                  | 最近一次刷新任务的作业 ID。                      |

@@ -67,6 +67,7 @@ WHERE NAME { = "mv_name" | LIKE "mv_name_matcher"}
 | text                       | 创建物化视图的查询语句。                                        |
 | extra_message              | 最近一次刷新任务的额外信息。                                    |
 | query_rewrite_status       | 物化视图的查询改写状态。有效值：`VALID`、`INVALID` 和 `UNKNOWN`。 |
+| query_rewrite_status_reason | `query_rewrite_status` 的原因。有效值：`OK`、`MV_INACTIVE`、`QUERY_REWRITE_DISABLED`、`UNSUPPORTED_DEFINITION` 和 `UNKNOWN`。 |
 | creator                    | 最近一次刷新任务的创建者。                                      |
 | last_refresh_process_time  | 最近一次刷新任务的处理开始时间。                                |
 | last_refresh_job_id        | 最近一次刷新任务的作业 ID。                                     |

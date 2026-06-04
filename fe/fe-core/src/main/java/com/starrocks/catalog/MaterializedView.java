@@ -2276,6 +2276,10 @@ public class MaterializedView extends OlapTable implements GsonPreProcessable, G
         return getMvPlanValidationResult().getStatus().name();
     }
 
+    public String getQueryRewriteStatusReason() {
+        return getMvPlanValidationResult().getReasonCode().name();
+    }
+
     private MVPlanValidationResult getMvPlanValidationResult() {
         // since check mv valid to rewrite query is a heavy operation, we only check it when it's in the plan cache.
         ConnectContext context = ConnectContext.get() == null ? ConnectContext.build() : ConnectContext.get();

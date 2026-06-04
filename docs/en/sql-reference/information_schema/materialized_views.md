@@ -35,6 +35,7 @@ The following fields are provided in `materialized_views`:
 | MATERIALIZED_VIEW_DEFINITION         | SQL definition of the materialized view.                     |
 | EXTRA_MESSAGE                        | Extra message of the materialized view.                      |
 | QUERY_REWRITE_STATUS                 | Query rewrite status of the materialized view. Valid values: `VALID`, `INVALID`, and `UNKNOWN`. |
+| QUERY_REWRITE_STATUS_REASON          | The reason behind `QUERY_REWRITE_STATUS`. Valid values: `OK`, `MV_INACTIVE`, `QUERY_REWRITE_DISABLED`, `UNSUPPORTED_DEFINITION`, and `UNKNOWN`. |
 | CREATOR                              | Creator of the materialized view.                            |
 | LAST_REFRESH_PROCESS_TIME            | Process time of the most recent refresh task.                |
 | LAST_REFRESH_JOB_ID                  | Job ID of the most recent refresh task.                      |

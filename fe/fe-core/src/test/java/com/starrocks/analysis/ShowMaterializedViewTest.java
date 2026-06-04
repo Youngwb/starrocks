@@ -130,7 +130,8 @@ public class ShowMaterializedViewTest {
                         "information_schema.materialized_views.refresh_mode AS refresh_mode, " +
                         "information_schema.materialized_views.refresh_trigger AS refresh_trigger, " +
                         "information_schema.materialized_views.refresh_policy AS refresh_policy, " +
-                        "information_schema.materialized_views.resource_group AS resource_group" +
+                        "information_schema.materialized_views.resource_group AS resource_group, " +
+                        "information_schema.materialized_views.query_rewrite_status_reason AS query_rewrite_status_reason" +
                         " FROM " +
                         "information_schema.materialized_views " +
                         "WHERE (information_schema.materialized_views.TABLE_SCHEMA = 'abc') AND " +
@@ -167,7 +168,14 @@ public class ShowMaterializedViewTest {
     public void testResourceGroupColumn() {
         List<Column> schema = MaterializedViewsSystemTable.create().getBaseSchema();
         Assertions.assertTrue(schema.stream().anyMatch(c -> c.getName().equalsIgnoreCase("RESOURCE_GROUP")));
-        Assertions.assertEquals("RESOURCE_GROUP", schema.get(schema.size() - 1).getName());
+    }
+
+    @Test
+    public void testQueryRewriteStatusReasonColumn() {
+        List<Column> schema = MaterializedViewsSystemTable.create().getBaseSchema();
+        Assertions.assertTrue(schema.stream()
+                .anyMatch(c -> c.getName().equalsIgnoreCase("QUERY_REWRITE_STATUS_REASON")));
+        Assertions.assertEquals("QUERY_REWRITE_STATUS_REASON", schema.get(schema.size() - 1).getName());
     }
 
     private void checkShowMaterializedViewsStmt(ShowMaterializedViewsStmt stmt) {
