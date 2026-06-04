@@ -77,6 +77,7 @@ public class ShowMaterializedViewStatus {
     private long lastRefreshTime;
     private String warehouse;
     private String refreshMode;
+    private String refreshTrigger;
     private List<TaskRunStatus> lastJobTaskRunStatus;
 
     /**
@@ -361,6 +362,7 @@ public class ShowMaterializedViewStatus {
         }
         status.setWarehouse(mv.getWarehouseName());
         status.setRefreshMode(mv.getRefreshMode() == null ? null : mv.getRefreshMode().name());
+        status.setRefreshTrigger(mv.getRefreshTriggerString());
         status.setLastJobTaskRunStatus(taskTaskStatusJob);
         return status;
     }
@@ -394,6 +396,7 @@ public class ShowMaterializedViewStatus {
         }
         status.setWarehouse("");
         status.setRefreshMode(null);
+        status.setRefreshTrigger("NONE");
         return status;
     }
 
@@ -515,6 +518,14 @@ public class ShowMaterializedViewStatus {
 
     public void setRefreshMode(String refreshMode) {
         this.refreshMode = refreshMode;
+    }
+
+    public String getRefreshTrigger() {
+        return refreshTrigger;
+    }
+
+    public void setRefreshTrigger(String refreshTrigger) {
+        this.refreshTrigger = refreshTrigger;
     }
 
     public void setLastJobTaskRunStatus(List<TaskRunStatus> lastJobTaskRunStatus) {
@@ -698,6 +709,7 @@ public class ShowMaterializedViewStatus {
         }
         status.setWarehouse(Strings.nullToEmpty(this.warehouse));
         status.setRefresh_mode(Strings.nullToEmpty(this.refreshMode));
+        status.setRefresh_trigger(Strings.nullToEmpty(this.refreshTrigger));
 
         return status;
     }
@@ -775,6 +787,7 @@ public class ShowMaterializedViewStatus {
         addField(resultRow, lastRefreshTime > 0 ? TimeUtils.longToTimeString(lastRefreshTime) : "");
         addField(resultRow, Strings.nullToEmpty(warehouse));
         addField(resultRow, Strings.nullToEmpty(refreshMode));
+        addField(resultRow, Strings.nullToEmpty(refreshTrigger));
 
         return resultRow;
     }

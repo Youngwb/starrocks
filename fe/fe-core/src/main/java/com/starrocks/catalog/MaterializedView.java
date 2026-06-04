@@ -1721,6 +1721,20 @@ public class MaterializedView extends OlapTable implements GsonPreProcessable, G
                 asyncRefreshContext.step == 0 && null == asyncRefreshContext.timeUnit;
     }
 
+    public String getRefreshTriggerString() {
+        if (refreshScheme == null) {
+            return "NONE";
+        }
+        MaterializedViewRefreshType type = refreshScheme.getType();
+        if (type == MaterializedViewRefreshType.SYNC) {
+            return "NONE";
+        }
+        if (type == MaterializedViewRefreshType.MANUAL) {
+            return "MANUAL";
+        }
+        return isLoadTriggeredRefresh() ? "ON_BASE_TABLE_CHANGE" : "SCHEDULED";
+    }
+
     /**
      * Return the partition refresh strategy of the materialized view.
      */

@@ -109,6 +109,7 @@ public class MaterializedViewsSystemTable extends SystemTable {
                         .column("LAST_REFRESH_TIME", DateType.DATETIME)
                         .column("WAREHOUSE", TypeFactory.createVarcharType(128))
                         .column("REFRESH_MODE", TypeFactory.createVarcharType(16))
+                        .column("REFRESH_TRIGGER", TypeFactory.createVarcharType(24))
                         .build(), TSchemaTableType.SCH_MATERIALIZED_VIEWS);
     }
 
