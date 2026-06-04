@@ -46,7 +46,7 @@ WHERE NAME { = "mv_name" | LIKE "mv_name_matcher"}
 | id                         | 物化视图 ID。                                               |
 | database_name              | 物化视图所属的数据库名称。                                     |
 | name                       | 物化视图名称。                                               |
-| refresh_type               | 物化视图的更新方式，包括 ROLLUP、MANUAL、ASYNC、INCREMENTAL。   |
+| refresh_type               | 物化视图的更新方式，有效值：`SYNC`（同步物化视图）和 `ASYNC`（异步物化视图，无论以何种方式触发刷新）。   |
 | is_active                  | 物化视图状态是否为 active。有效值：`true` 和 `false`。          |
 | inactive_reason            | 物化视图失效的原因。                                          |
 | partition_type             | 物化视图的分区类型，包括 RANGE 和 UNPARTITIONED。|
@@ -121,7 +121,7 @@ mysql> show materialized views  where name='customer_mv'\G
                         id: 10142
                       name: customer_mv
              database_name: test
-              refresh_type: MANUAL
+              refresh_type: ASYNC
                  is_active: true
    last_refresh_start_time: 2023-02-17 10:27:33
 last_refresh_finished_time: 2023-02-17 10:27:33
@@ -152,7 +152,7 @@ mysql> show materialized views  where name like 'customer_mv'\G
                         id: 10142
                       name: customer_mv
              database_name: test
-              refresh_type: MANUAL
+              refresh_type: ASYNC
                  is_active: true
    last_refresh_start_time: 2023-02-17 10:27:33
 last_refresh_finished_time: 2023-02-17 10:27:33

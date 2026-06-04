@@ -47,7 +47,7 @@ WHERE NAME { = "mv_name" | LIKE "mv_name_matcher"}
 | id                         | マテリアライズドビューのID。                             |
 | database_name              | マテリアライズドビューが存在するデータベースの名前。 |
 | name                       | マテリアライズドビューの名前。                           |
-| refresh_type               | マテリアライズドビューのリフレッシュタイプ。ROLLUP、MANUAL、ASYNC、INCREMENTAL などがあります。 |
+| refresh_type               | マテリアライズドビューのリフレッシュタイプ。有効な値: `SYNC` (同期マテリアライズドビュー) および `ASYNC` (非同期マテリアライズドビュー。リフレッシュのトリガー方法に関係なく)。 |
 | is_active                  | マテリアライズドビューの状態がアクティブかどうか。 有効な値: `true` と `false`。 |
 | partition_type             | マテリアライズドビューのパーティションタイプ。RANGE と UNPARTITIONED があります。                |
 | task_id                    | マテリアライズドビューのリフレッシュタスクのID。                  |
@@ -115,7 +115,7 @@ mysql> SHOW MATERIALIZED VIEWS WHERE NAME='customer_mv'\G
                         id: 10142
                       name: customer_mv
              database_name: test
-              refresh_type: MANUAL
+              refresh_type: ASYNC
                  is_active: true
    last_refresh_start_time: 2023-02-17 10:27:33
 last_refresh_finished_time: 2023-02-17 10:27:33
@@ -146,7 +146,7 @@ mysql> SHOW MATERIALIZED VIEWS WHERE NAME LIKE 'customer_mv'\G
                         id: 10142
                       name: customer_mv
              database_name: test
-              refresh_type: MANUAL
+              refresh_type: ASYNC
                  is_active: true
    last_refresh_start_time: 2023-02-17 10:27:33
 last_refresh_finished_time: 2023-02-17 10:27:33

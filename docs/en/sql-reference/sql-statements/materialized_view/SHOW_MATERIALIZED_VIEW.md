@@ -46,7 +46,7 @@ Since v3.3, `SHOW MATERIALIZED VIEWS` command will track the state of all task_r
 | id                         | The ID of the materialized view.                             |
 | database_name              | The name of the database in which the materialized view resides. |
 | name                       | The name of the materialized view.                           |
-| refresh_type               | The refresh type of the materialized view, including ROLLUP, MANUAL, ASYNC, and INCREMENTAL. |
+| refresh_type               | The refresh type of the materialized view. Valid values: `SYNC` (synchronous materialized view) and `ASYNC` (asynchronous materialized view, regardless of how the refresh is triggered). |
 | is_active                  | Whether the materialized view state is active. Valid Value: `true` and `false`. |
 | inactive_reason            | The reason why the materialized view is inactive.            |
 | partition_type             | The partition type of the materialized view, including RANGE and UNPARTITIONED.                |
@@ -121,7 +121,7 @@ mysql> SHOW MATERIALIZED VIEWS WHERE NAME='customer_mv'\G
                         id: 10142
                       name: customer_mv
              database_name: test
-              refresh_type: MANUAL
+              refresh_type: ASYNC
                  is_active: true
    last_refresh_start_time: 2023-02-17 10:27:33
 last_refresh_finished_time: 2023-02-17 10:27:33
@@ -152,7 +152,7 @@ mysql> SHOW MATERIALIZED VIEWS WHERE NAME LIKE 'customer_mv'\G
                         id: 10142
                       name: customer_mv
              database_name: test
-              refresh_type: MANUAL
+              refresh_type: ASYNC
                  is_active: true
    last_refresh_start_time: 2023-02-17 10:27:33
 last_refresh_finished_time: 2023-02-17 10:27:33

@@ -24,6 +24,7 @@ import com.starrocks.catalog.Column;
 import com.starrocks.catalog.MaterializedIndex;
 import com.starrocks.catalog.MaterializedIndexMeta;
 import com.starrocks.catalog.MaterializedView;
+import com.starrocks.catalog.MaterializedViewRefreshType;
 import com.starrocks.catalog.OlapTable;
 import com.starrocks.catalog.Partition;
 import com.starrocks.catalog.PartitionType;
@@ -337,7 +338,8 @@ public class ShowMaterializedViewStatus {
         if (refreshScheme == null) {
             status.setRefreshType("UNKNOWN");
         } else {
-            status.setRefreshType(String.valueOf(mv.getRefreshScheme().getType()));
+            MaterializedViewRefreshType type = refreshScheme.getType();
+            status.setRefreshType(type == MaterializedViewRefreshType.SYNC ? "SYNC" : "ASYNC");
         }
         // is_active
         status.setActive(mv.isActive());
@@ -375,7 +377,7 @@ public class ShowMaterializedViewStatus {
         ShowMaterializedViewStatus status = new ShowMaterializedViewStatus(indexMeta.getIndexMetaId(), dbName,
                 olapTable.getIndexNameByMetaId(indexMeta.getIndexMetaId()));
         // refresh_type
-        status.setRefreshType("ROLLUP");
+        status.setRefreshType("SYNC");
         // is_active
         status.setActive(true);
         // partition type

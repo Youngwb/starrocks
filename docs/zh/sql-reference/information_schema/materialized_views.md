@@ -13,7 +13,7 @@ displayed_sidebar: docs
 | MATERIALIZED_VIEW_ID                 | 物化视图 ID。                                    |
 | TABLE_SCHEMA                         | 物化视图所在的数据库名称。                       |
 | TABLE_NAME                           | 物化视图名称。                                   |
-| REFRESH_TYPE                         | 物化视图（刷新）类型，包括 `ROLLUP`（同步物化视图）、`ASYNC`（异步刷新物化视图）以及 `MANUAL`（手动刷新物化视图）。当此值为 `ROLLUP` 时，以下生效状态和刷新相关的字段为空。 |
+| REFRESH_TYPE                         | 物化视图（刷新）类型，有效值：`SYNC`（同步物化视图）和 `ASYNC`（异步物化视图，无论以何种方式触发刷新）。当此值为 `SYNC` 时，以下生效状态和刷新相关的字段为空。异步物化视图的刷新方式请参见 `REFRESH_TRIGGER` 和 `REFRESH_POLICY`。 |
 | IS_ACTIVE                            | 是否生效，失效的物化视图不会被刷新和查询改写。   |
 | INACTIVE_REASON                      | 失效的原因。                                     |
 | PARTITION_TYPE                       | 物化视图分区类型。                               |
