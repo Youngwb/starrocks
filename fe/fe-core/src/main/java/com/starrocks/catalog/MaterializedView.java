@@ -1735,6 +1735,37 @@ public class MaterializedView extends OlapTable implements GsonPreProcessable, G
         return isLoadTriggeredRefresh() ? "ON_BASE_TABLE_CHANGE" : "SCHEDULED";
     }
 
+    public String getRefreshPolicyString() {
+        if (refreshScheme == null) {
+            return "NONE";
+        }
+        MaterializedViewRefreshType type = refreshScheme.getType();
+        if (type == MaterializedViewRefreshType.SYNC) {
+            return "NONE";
+        }
+        if (type == MaterializedViewRefreshType.MANUAL) {
+            return "MANUAL";
+        }
+        if (isLoadTriggeredRefresh()) {
+            return "ON_BASE_TABLE_CHANGE";
+        }
+        StringBuilder sb = new StringBuilder();
+        appendAsyncRefreshSchedule(sb, refreshScheme.getAsyncRefreshContext());
+        return sb.toString().trim();
+    }
+
+    private void appendAsyncRefreshSchedule(StringBuilder sb, AsyncRefreshContext asyncRefreshContext) {
+        if (asyncRefreshContext.isDefineStartTime()) {
+            sb.append(" START(\"").append(Utils.getDatetimeFromLong(asyncRefreshContext.getStartTime())
+                            .format(DateUtils.DATE_TIME_FORMATTER))
+                    .append("\")");
+        }
+        if (asyncRefreshContext.getTimeUnit() != null) {
+            sb.append(" EVERY(INTERVAL ").append(asyncRefreshContext.getStep()).append(" ")
+                    .append(asyncRefreshContext.getTimeUnit()).append(")");
+        }
+    }
+
     /**
      * Return the partition refresh strategy of the materialized view.
      */
@@ -1925,16 +1956,7 @@ public class MaterializedView extends OlapTable implements GsonPreProcessable, G
             }
         }
         if (refreshScheme != null && refreshScheme.getType() == MaterializedViewRefreshType.ASYNC) {
-            AsyncRefreshContext asyncRefreshContext = refreshScheme.getAsyncRefreshContext();
-            if (asyncRefreshContext.isDefineStartTime()) {
-                sb.append(" START(\"").append(Utils.getDatetimeFromLong(asyncRefreshContext.getStartTime())
-                                .format(DateUtils.DATE_TIME_FORMATTER))
-                        .append("\")");
-            }
-            if (asyncRefreshContext.getTimeUnit() != null) {
-                sb.append(" EVERY(INTERVAL ").append(asyncRefreshContext.getStep()).append(" ")
-                        .append(asyncRefreshContext.getTimeUnit()).append(")");
-            }
+            appendAsyncRefreshSchedule(sb, refreshScheme.getAsyncRefreshContext());
         }
 
         // properties

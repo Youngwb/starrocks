@@ -128,7 +128,8 @@ public class ShowMaterializedViewTest {
                         "information_schema.materialized_views.last_refresh_time AS last_refresh_time, " +
                         "information_schema.materialized_views.warehouse AS warehouse, " +
                         "information_schema.materialized_views.refresh_mode AS refresh_mode, " +
-                        "information_schema.materialized_views.refresh_trigger AS refresh_trigger" +
+                        "information_schema.materialized_views.refresh_trigger AS refresh_trigger, " +
+                        "information_schema.materialized_views.refresh_policy AS refresh_policy" +
                         " FROM " +
                         "information_schema.materialized_views " +
                         "WHERE (information_schema.materialized_views.TABLE_SCHEMA = 'abc') AND " +
@@ -153,7 +154,13 @@ public class ShowMaterializedViewTest {
     public void testRefreshTriggerColumn() {
         List<Column> schema = MaterializedViewsSystemTable.create().getBaseSchema();
         Assertions.assertTrue(schema.stream().anyMatch(c -> c.getName().equalsIgnoreCase("REFRESH_TRIGGER")));
-        Assertions.assertEquals("REFRESH_TRIGGER", schema.get(schema.size() - 1).getName());
+    }
+
+    @Test
+    public void testRefreshPolicyColumn() {
+        List<Column> schema = MaterializedViewsSystemTable.create().getBaseSchema();
+        Assertions.assertTrue(schema.stream().anyMatch(c -> c.getName().equalsIgnoreCase("REFRESH_POLICY")));
+        Assertions.assertEquals("REFRESH_POLICY", schema.get(schema.size() - 1).getName());
     }
 
     private void checkShowMaterializedViewsStmt(ShowMaterializedViewsStmt stmt) {

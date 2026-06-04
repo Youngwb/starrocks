@@ -78,6 +78,7 @@ public class ShowMaterializedViewStatus {
     private String warehouse;
     private String refreshMode;
     private String refreshTrigger;
+    private String refreshPolicy;
     private List<TaskRunStatus> lastJobTaskRunStatus;
 
     /**
@@ -363,6 +364,7 @@ public class ShowMaterializedViewStatus {
         status.setWarehouse(mv.getWarehouseName());
         status.setRefreshMode(mv.getRefreshMode() == null ? null : mv.getRefreshMode().name());
         status.setRefreshTrigger(mv.getRefreshTriggerString());
+        status.setRefreshPolicy(mv.getRefreshPolicyString());
         status.setLastJobTaskRunStatus(taskTaskStatusJob);
         return status;
     }
@@ -397,6 +399,7 @@ public class ShowMaterializedViewStatus {
         status.setWarehouse("");
         status.setRefreshMode(null);
         status.setRefreshTrigger("NONE");
+        status.setRefreshPolicy("NONE");
         return status;
     }
 
@@ -526,6 +529,14 @@ public class ShowMaterializedViewStatus {
 
     public void setRefreshTrigger(String refreshTrigger) {
         this.refreshTrigger = refreshTrigger;
+    }
+
+    public String getRefreshPolicy() {
+        return refreshPolicy;
+    }
+
+    public void setRefreshPolicy(String refreshPolicy) {
+        this.refreshPolicy = refreshPolicy;
     }
 
     public void setLastJobTaskRunStatus(List<TaskRunStatus> lastJobTaskRunStatus) {
@@ -710,6 +721,7 @@ public class ShowMaterializedViewStatus {
         status.setWarehouse(Strings.nullToEmpty(this.warehouse));
         status.setRefresh_mode(Strings.nullToEmpty(this.refreshMode));
         status.setRefresh_trigger(Strings.nullToEmpty(this.refreshTrigger));
+        status.setRefresh_policy(Strings.nullToEmpty(this.refreshPolicy));
 
         return status;
     }
@@ -788,6 +800,7 @@ public class ShowMaterializedViewStatus {
         addField(resultRow, Strings.nullToEmpty(warehouse));
         addField(resultRow, Strings.nullToEmpty(refreshMode));
         addField(resultRow, Strings.nullToEmpty(refreshTrigger));
+        addField(resultRow, Strings.nullToEmpty(refreshPolicy));
 
         return resultRow;
     }

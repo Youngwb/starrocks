@@ -413,6 +413,7 @@ struct TMaterializedViewStatus {
     32: optional string warehouse
     33: optional string refresh_mode
     34: optional string refresh_trigger
+    35: optional string refresh_policy
 }
 
 struct TListPipesParams {
