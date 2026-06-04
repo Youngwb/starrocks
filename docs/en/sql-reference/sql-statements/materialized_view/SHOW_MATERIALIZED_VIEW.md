@@ -66,7 +66,7 @@ Since v3.3, `SHOW MATERIALIZED VIEWS` command will track the state of all task_r
 | rows                       | The number of data rows in the materialized view.            |
 | text                       | The statement used to create the materialized view.          |
 | extra_message              | Extra information about the latest refresh task.             |
-| query_rewrite_status       | Query rewrite status of the materialized view.               |
+| query_rewrite_status       | Query rewrite status of the materialized view. Valid values: `VALID`, `INVALID`, and `UNKNOWN`. |
 | creator                    | Creator of the materialized view refresh task.               |
 | last_refresh_process_time  | The process start time of the latest refresh task.           |
 | last_refresh_job_id        | Job ID of the latest refresh task.                           |

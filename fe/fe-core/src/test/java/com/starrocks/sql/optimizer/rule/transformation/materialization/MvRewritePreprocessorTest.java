@@ -770,7 +770,7 @@ public class MvRewritePreprocessorTest extends MVTestBase {
             MaterializedView mv = getMv(DB_NAME, mvName);
             CachingMvPlanContextBuilder.getInstance().evictMaterializedViewCache(mv);
             String status = mv.getQueryRewriteStatus();
-            Assertions.assertTrue(status.equalsIgnoreCase("UNKNOWN: MV plan is not in cache, valid check is unknown"));
+            Assertions.assertEquals("UNKNOWN", status);
         });
     }
 
