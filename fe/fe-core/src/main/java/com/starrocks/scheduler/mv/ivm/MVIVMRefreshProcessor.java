@@ -368,6 +368,8 @@ public final class MVIVMRefreshProcessor extends MVRefreshProcessor {
         TvrTableSnapshot toSnapshot = maxTvrDelta.toSnapshot();
         long addedRows = 0;
         long addedFileSize = 0;
+        boolean consumedAny = false;
+        boolean reachedCap = false;
         for (TvrTableDeltaTrait deltaTrait : tableDeltaTraits) {
             // TODO: We may need to handle the case where the deltaTrait is not append-only.
             if (!deltaTrait.isAppendOnly()) {
@@ -381,16 +383,23 @@ public final class MVIVMRefreshProcessor extends MVRefreshProcessor {
                 logger.info("Base table: {}, db: {}, added rows: {}, added file size:{}, snapshot:{}" +
                                 "reached the max rows per refresh, stop processing further deltas",
                         baseTableInfo.getTableName(), baseTableInfo.getDbName(), addedRows, addedFileSize, deltaTrait);
+                reachedCap = true;
+                // A single delta that already meets the cap must still advance one step; otherwise
+                // toSnapshot stays at the range end and the whole backlog refreshes in one run.
+                if (!consumedAny) {
+                    toSnapshot = deltaTrait.getTvrDelta().toSnapshot();
+                }
                 break;
             }
             logger.info("Base table: {}, db: {}, deltaTrait: {}, added rows: {}, fromSnapshot: {}, toSnapshot: {}",
                     baseTableInfo.getTableName(), baseTableInfo.getDbName(), deltaTrait, addedRows,
                     fromSnapshot, toSnapshot);
             toSnapshot = deltaTrait.getTvrDelta().toSnapshot();
+            consumedAny = true;
         }
         TvrTableDelta result = TvrTableDelta.of(fromSnapshot.to, toSnapshot.to);
         // if the adaptive tvr delta is different from the max tvr delta, generate the next task run
-        hasNextTaskRun |= addedRows >= Config.mv_max_rows_per_refresh
+        hasNextTaskRun |= reachedCap
                 && !toSnapshot.equals(maxTvrDelta.toSnapshot())
                 && !toSnapshot.to.isMax();
         logger.info("Base table: {}, db: {}, max tvr delta: {}, adaptive tvr delta: {}, " +
